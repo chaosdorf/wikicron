@@ -1,0 +1,395 @@
+#!/usr/bin/env perl
+## Copyright © 2012,2013 by Daniel Friesel <derf@chaosdorf.de>
+## License: WTFPL:
+##   0. You just DO WHAT THE FUCK YOU WANT TO
+
+
+use strict;
+use warnings;
+use 5.012;
+use utf8;
+use autodie qw(:all);
+
+use Data::ICal;
+use Data::ICal::Entry::Event;
+use DateTime;
+use DateTime::Format::ICal;
+use MediaWiki::API;
+
+our $VERSION = '0.0';
+
+$ENV{HTTPS_CA_DIR} = '/etc/ssl/certs';
+
+my $content = <<'EOF';
+
+* [[Help:Current events|Über diese Seite]]
+* [[Form:Event|Event anlegen]]
+* [http://flux.derf0.net/cccd.ics ical export]
+* [[Chaosdorf Wiki:Past events|Archiv]]
+
+{| cellpadding="3" cellspacing="0" style="<!--
+    --> margin-bottom: 0.5em; margin-left: 1em; padding: 0; text-align: left; <!--
+    --> border: none; background-color: white; color: black;"
+|-
+EOF
+
+my $soon_content = <<'EOF';
+
+{{Infobox start nonfloat
+ | name = [[Chaosdorf Wiki:Current events|Termine]]
+ | headercolor = #ccc
+}}<!--
+EOF
+
+my $past_content = <<'EOF';
+
+Vergangene Events (ohne Wiederkehrende, nur Einzeltermine)
+
+{{TOCright}}
+
+EOF
+
+my $soon_cnt  = 3;
+my $icalfile  = '/home/derf/web/net.derf0.flux/out/cccd.ics';
+my $ical      = Data::ICal->new();
+my $last_date = q{};
+my $today     = DateTime->now(
+	time_zone => 'UTC',
+	locale    => 'de_DE'
+);
+
+my @dates = qw(
+  monday tuesday wednesday thursday friday saturday sunday
+);
+my @blacklist = ( qw(Template:Freitagsfoo Freitagsfoo), 'Further Foo' );
+my @type_blacklist = qw(Meet-Up);
+
+my $mw = MediaWiki::API->new(
+	{
+		api_url  => 'https://wiki.chaosdorf.de/api.php',
+		on_error => \&on_error,
+	}
+);
+
+sub on_error {
+	print 'Error code: ' . $mw->{error}->{code} . "\n";
+	print $mw->{error}->{stacktrace} . "\n";
+	exit 1;
+}
+
+$mw->login(
+	{
+		lgname     => $ENV{WIKI_USER},
+		lgpassword => $ENV{WIKI_PASSWORD},
+		lgdomain   => 'local',
+	}
+);
+
+sub translate_type {
+	my ($type) = @_;
+
+	given ($type) {
+		when ('Lecture') { return 'Vortrag' }
+		default          { return $type }
+	}
+}
+
+sub write_ical {
+	my $caltext = $ical->as_string;
+
+	$caltext =~ s{PRODID:.*\r\n}{};
+	$caltext
+	  =~ s{VERSION:[^\r\n]*\K}{\r\nCALSCALE:GREGORIAN\r\nPRODID:-//CCCD//Events//DE};
+	$caltext =~ s{DTSTART:TZID}{DTSTART;TZID}g;
+	$caltext =~ s{DTSTAMP:TZID}{DTSTAMP;TZID}g;
+	$caltext =~ s{DTSTAMP:.*\KZ}{}g;
+	$caltext =~ s{UID:.*:}{UID:}g;
+
+	open( my $fh, '>:encoding(utf-8)', $icalfile );
+	print $fh $caltext;
+	close($fh);
+}
+
+sub add_ical {
+	my ( $date, $pageref ) = @_;
+
+	my $time     = $pageref->{time};
+	my $page     = $pageref->{page};
+	my $type     = $pageref->{type};
+	my $pagename = $pageref->{title} // $pageref->{page};
+	my $duration = $pageref->{duration} // 4;
+
+	my $vevent = Data::ICal::Entry::Event->new();
+
+	$page =~ s{ }{_}g;
+
+	my $start = $date->clone;
+	if ($time) {
+		my ( $th, $tm ) = ( $time =~ m{ (.?.) : (..) }ox );
+		$start->add(
+			hours   => $th,
+			minutes => $tm
+		);
+	}
+	$vevent->add_properties(
+		summary     => $pagename,
+		description => $pagename,
+		dtstart     => DateTime::Format::ICal->format_datetime($start),
+		dtstamp     => DateTime::Format::ICal->format_datetime($today),
+		duration    => "PT${duration}H00M",
+		location    => 'Hüttenstr. 25, Düsseldorf, DE',
+		sequence    => 0,
+		uid => DateTime::Format::ICal->format_datetime($start) . '@cccd',
+		url => "https://wiki.chaosdorf.de/${page}",
+	);
+	$ical->add_entry($vevent);
+}
+
+# skaliert nicht.
+# TODO: cache
+sub add_entry {
+	my ( $date, $pageref ) = @_;
+	my $ymd = $date->ymd;
+
+	my $time     = $pageref->{time} // q{};
+	my $page     = $pageref->{page};
+	my $type     = $pageref->{type};
+	my $pagename = $pageref->{title} // $pageref->{page};
+	$pagename =~ s{\s+ $ymd}{}x;
+
+	$content .= "|-\n| ";
+	if ( $ymd ne $last_date ) {
+		$content .= $date->strftime('%a');
+	}
+	$content .= "\n| ";
+	if ( $ymd ne $last_date ) {
+		$content .= $date->strftime('%d. %b');
+	}
+	$content .= "\n| ";
+	$content .= sprintf( '%s [[%s|%s]]', $time, $page, $pagename );
+	if ( $type and not( $type ~~ \@type_blacklist ) ) {
+		$content .= sprintf( ' (%s)', translate_type($type) );
+	}
+	$content .= "\n";
+	$last_date = $ymd;
+
+	if ( $soon_cnt > 0 ) {
+		$soon_cnt--;
+		$soon_content .= sprintf(
+			"-->{{Infobox row | name = %s | value = %s [[%s|%s]] }}<!--\n",
+			$date->strftime('%b %d'),
+			$time, $page, $pagename
+		);
+		if ( $soon_cnt == 0 ) {
+			$soon_content .= "-->\n|}\n";
+		}
+	}
+
+	add_ical( $date, $pageref );
+}
+
+sub add_past_entry {
+	my ( $date, $pageref ) = @_;
+	my $ymd = $date->ymd;
+
+	my $time     = $pageref->{time} // q{};
+	my $page     = $pageref->{page};
+	my $type     = $pageref->{type};
+	my $pagename = $pageref->{title} // $pageref->{page};
+	$pagename =~ s{\s+ $ymd}{}x;
+
+	if ( $ymd ne $last_date ) {
+		$past_content .= $date->strftime("\n== %A, %d. %B %Y ==\n");
+	}
+	$past_content .= sprintf( '* %s [[%s|%s]]', $time, $page, $pagename );
+	if ( $type and not( $type ~~ \@type_blacklist ) ) {
+		$past_content .= sprintf( ' (%s)', translate_type($type) );
+	}
+	$past_content .= "\n";
+	$last_date = $ymd;
+}
+
+sub monthly_event {
+	my ($day) = @_;
+
+	my @ret = qw(1st 2nd 3rd 4th 5th);
+	my $dow = $day->day_of_week - 1;
+	my $dom = $day->day_of_month - 1;
+
+	return sprintf( '%s %s', $ret[ int( $dom / 7 ) ], $dates[$dow] );
+}
+
+sub get_data_from_template {
+	my ($pagename) = @_;
+	my ( $date, $time, $type, $duration );
+
+	my @lines = split(/\n/, mw_get($pagename));
+	my $in_template = 0;
+	for my $line (@lines) {
+		if ( $line =~ m/ ^ \s* {{Event \s* $ /ox ) {
+			$in_template = 1;
+		}
+		if ( $line =~ m/ ^ \s* }} \s* $ /ox ) {
+			$in_template = 0;
+		}
+		if (
+			$in_template
+			and
+			( $line =~ m{ ^ \s* \| \s* date \s* = \s* (?<date>....-..-..) }ix
+				or $line
+				=~ m{ ^ \s* \| \s* date \s* = \s* every \s+ (?<date> .+ ) }ix
+				or $line
+				=~ m{ ^ \s* \| \s* date \s* = \s* monthly: \s* (?<date>... \s+ [a-zA-Z]+) }ix
+				or $line
+				=~ m{ ^ \s* \| \s* date \s* = \s* (?<date>... \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
+			)
+		  )
+		{
+			$date = lc( $+{date} );
+		}
+		if (    $in_template
+			and $line =~ m{ ^ \s* \| \s* start \s* = \s* (?<time>.?.:..) }ix )
+		{
+			$time = $+{time};
+		}
+		if (    $in_template
+			and $line =~ m{ ^ \s* \| \s* type \s* = \s* (?<type>.+) }ix )
+		{
+			$type = $+{type};
+		}
+		if (    $in_template
+			and $line
+			=~ m{ ^ \s* \| \s* duration \s* = \s* (?<duration>\d+) }ix )
+		{
+			$duration = $+{duration};
+		}
+	}
+	return (
+		$date,
+		{
+			page     => $pagename,
+			time     => $time,
+			type     => $type,
+			duration => $duration,
+		}
+	);
+}
+
+sub mw_get {
+	my ($page) = @_;
+	return $mw->get_page( {title => $page} )->{'*'};
+}
+
+sub mw_edit {
+	my ($page, $content) = @_;
+
+	my $timestamp = $mw->get_page( {title => $page} )->{timestamp};
+	$mw->edit( {
+		action => 'edit',
+		title => $page,
+		basetimestamp => $timestamp,
+		text => $content,
+		bot => 1,
+	} )
+	|| die $mw->{error}->{code} . ': ' . $mw->{error}->{details};
+}
+
+my $day = DateTime->now(
+	time_zone => 'Europe/Berlin',
+	locale    => 'de_DE'
+);
+$day->set_hour(0);
+$day->set_minute(0);
+$day->set_second(0);
+
+my @pages = @{
+	$mw->list(
+		{
+			action  => 'query',
+			list    => 'categorymembers',
+			cmtitle => 'Category:Events',
+			cmlimit => 100,
+		},
+		{ max => 20, }
+	)
+  };
+
+my ( %by_date, @unknown );
+
+for my $page ( map { $_->{title} } @pages ) {
+	if ( $page =~ m{ ^ .+ \s+ (?<date> \d{4}-\d{2}-\d{2}) $ }ox ) {
+		my ( undef, $pageref ) = get_data_from_template($page);
+		push( @{ $by_date{ $+{date} } }, $pageref );
+	}
+	elsif ( not( $page ~~ \@blacklist ) ) {
+		my ( $date, $pageref ) = get_data_from_template($page);
+		if ($date) {
+			push( @{ $by_date{$date} }, $pageref );
+		}
+		else {
+			push( @unknown, $page );
+		}
+	}
+}
+
+for ( 0 .. 66 ) {
+	my $ymd = $day->ymd;
+	my $dow = $day->day_of_week;
+
+	my @all_pages = (
+		@{ $by_date{ $dates[ $dow - 1 ] }  // [] },
+		@{ $by_date{ monthly_event($day) } // [] },
+		@{ $by_date{$ymd}                  // [] }
+	);
+	my @by_time = sort { $a->{time} cmp $b->{time} }
+	  grep { defined $_->{time} } @all_pages;
+	my @by_name = sort { $a->{title} cmp $b->{title} }
+	  grep { not defined $_->{time} } @all_pages;
+
+	for my $page ( @by_time, @by_name ) {
+		add_entry( $day, $page );
+	}
+	$day->add( days => 1 );
+}
+
+$day = DateTime->now(
+	time_zone => 'Europe/Berlin',
+	locale    => 'de_DE'
+);
+$day->set_hour(0);
+$day->set_minute(0);
+$day->set_second(0);
+
+# past three years
+for ( 0 .. 1100 ) {
+	my $ymd = $day->ymd;
+	my $dow = $day->day_of_week;
+
+	my @all_pages = ( @{ $by_date{$ymd} // [] } );
+	my @by_time = sort { $a->{time} cmp $b->{time} }
+	  grep { defined $_->{time} } @all_pages;
+	my @by_name = sort { $a->{title} cmp $b->{title} }
+	  grep { not defined $_->{time} } @all_pages;
+
+	for my $page ( @by_time, @by_name ) {
+		add_past_entry( $day, $page );
+	}
+	$day->subtract( days => 1 );
+}
+
+$content .= "|}\n";
+
+if (@unknown) {
+	$content .= "\n== Ohne Datum ==\n";
+	for my $page (@unknown) {
+		$content .= "* [[$page]]\n";
+	}
+}
+
+mw_edit('Chaosdorf Wiki:Current events', $content);
+mw_edit('Chaosdorf Wiki:Past events', $past_content);
+mw_edit('Template:Current events preview', $soon_content);
+
+$mw->logout();
+
+write_ical;

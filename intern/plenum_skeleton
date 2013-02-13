@@ -1,0 +1,44 @@
+#!/usr/bin/env perl
+## Copyright © 2012,2013 by Daniel Friesel <derf@chaosdorf.de>
+## License: WTFPL:
+##   0. You just DO WHAT THE FUCK YOU WANT TO
+
+
+use strict;
+use warnings;
+use 5.012;
+
+use DateTime;
+use File::Copy;
+use Git;
+
+our $VERSION = '0.0';
+
+my $date = DateTime->now( time_zone => 'Europe/Berlin' )
+  ->add( DateTime::Duration->new( days => 9 ) );
+
+if ( $date->day_of_week != 2 ) {
+	die( 'Target date is ' . $date->day_name . ", not Tuesday!\n" );
+}
+
+chdir('/home/derf/var/svn/intern.chaosdorf.de')
+  or die("Failed to chdir\n");
+
+my $repo = Git->repository();
+my $ymd  = $date->strftime('%Y/%m-%d');
+my $year = $date->strftime('%Y');
+
+say $date->ymd;
+
+$repo->command_noisy('pull');
+
+if ( not -e "plenum/entry/$year" ) {
+	mkdir("plenum/entry/$year");
+}
+
+copy( 'plenum/entry/template.mdwn', "plenum/entry/${ymd}.mdwn" )
+  or die("Copy failed: $!");
+
+$repo->command_noisy( 'add', "plenum/entry/${ymd}.mdwn" );
+$repo->command_noisy( 'commit', '-m', 'Plenums-Skeleton (Autocommit)' );
+$repo->command_noisy('push');

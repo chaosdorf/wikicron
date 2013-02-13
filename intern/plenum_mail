@@ -1,0 +1,59 @@
+#!/usr/bin/env perl
+## Copyright © 2012,2013 by Daniel Friesel <derf@chaosdorf.de>
+## License: WTFPL:
+##   0. You just DO WHAT THE FUCK YOU WANT TO
+
+
+use strict;
+use warnings;
+use 5.010;
+
+use DateTime;
+use Email::Sender::Simple qw(sendmail);
+use Email::Simple;
+use Email::Simple::Creator;
+use File::Slurp;
+use Git;
+use MIME::Words qw(encode_mimewords);
+
+our $VERSION = '0.0';
+
+my $date = DateTime->now( time_zone => 'Europe/Berlin' )->add(
+	DateTime::Duration->new(days => 1));
+
+chdir('/home/derf/var/svn/intern.chaosdorf.de')
+	or die("Failed to chdir\n");
+
+my $ymd = $date->strftime('%Y/%m-%d');
+my $repo = Git->repository();
+
+$repo->command_noisy('pull');
+
+my $body = q{};
+my $skip = 1;
+
+for my $line (read_file("plenum/entry/${ymd}.mdwn")) {
+	if ($skip and not $line =~ m{^#}o) {
+		next;
+	}
+	else {
+		$skip = 0;
+		$body .= $line;
+	}
+}
+
+if (not length($body)) {
+	exit 0;
+}
+
+my $mail = Email::Simple->create(
+	header => [
+		To => 'intern@chaosdorf.de',
+		From => '"Cron" <derf@finalrewind.org>',
+		Subject => encode_mimewords("Plenumsankündigung $ymd", Charset => 'UTF-8'),
+		'Content-Type' => 'text/plain; charset=UTF-8',
+	],
+	body => $body,
+);
+
+sendmail($mail);

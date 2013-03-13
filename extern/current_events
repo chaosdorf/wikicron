@@ -219,11 +219,28 @@ sub monthly_event {
 	return sprintf( '%s %s', $ret[ int( $dom / 7 ) ], $dates[$dow] );
 }
 
+sub monthly_event_rev {
+	my ($day) = @_;
+
+	my $dom  = $day->day_of_month;
+	my $last = DateTime->last_day_of_month(
+		year      => $day->year,
+		month     => $day->month,
+		time_zone => 'Europe/Berlin',
+		locale    => 'de_DE'
+	)->day_of_month;
+
+	if ( $last - $dom < 7 ) {
+		return sprintf( 'last %s', $dates[ $day->day_of_week - 1 ] );
+	}
+	return 'none';
+}
+
 sub get_data_from_template {
 	my ($pagename) = @_;
 	my ( $date, $time, $type, $duration );
 
-	my @lines = split(/\n/, mw_get($pagename));
+	my @lines = split( /\n/, mw_get($pagename) );
 	my $in_template = 0;
 	for my $line (@lines) {
 		if ( $line =~ m/ ^ \s* {{Event \s* $ /ox ) {
@@ -239,9 +256,9 @@ sub get_data_from_template {
 				or $line
 				=~ m{ ^ \s* \| \s* date \s* = \s* every \s+ (?<date> .+ ) }ix
 				or $line
-				=~ m{ ^ \s* \| \s* date \s* = \s* monthly: \s* (?<date>... \s+ [a-zA-Z]+) }ix
+				=~ m{ ^ \s* \| \s* date \s* = \s* monthly: \s* (?<date>....? \s+ [a-zA-Z]+) }ix
 				or $line
-				=~ m{ ^ \s* \| \s* date \s* = \s* (?<date>... \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
+				=~ m{ ^ \s* \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
 			)
 		  )
 		{
@@ -277,21 +294,22 @@ sub get_data_from_template {
 
 sub mw_get {
 	my ($page) = @_;
-	return $mw->get_page( {title => $page} )->{'*'};
+	return $mw->get_page( { title => $page } )->{'*'};
 }
 
 sub mw_edit {
-	my ($page, $content) = @_;
+	my ( $page, $content ) = @_;
 
-	my $timestamp = $mw->get_page( {title => $page} )->{timestamp};
-	$mw->edit( {
-		action => 'edit',
-		title => $page,
-		basetimestamp => $timestamp,
-		text => $content,
-		bot => 1,
-	} )
-	|| die $mw->{error}->{code} . ': ' . $mw->{error}->{details};
+	my $timestamp = $mw->get_page( { title => $page } )->{timestamp};
+	$mw->edit(
+		{
+			action        => 'edit',
+			title         => $page,
+			basetimestamp => $timestamp,
+			text          => $content,
+			bot           => 1,
+		}
+	) || die $mw->{error}->{code} . ': ' . $mw->{error}->{details};
 }
 
 my $day = DateTime->now(
@@ -337,9 +355,10 @@ for ( 0 .. 66 ) {
 	my $dow = $day->day_of_week;
 
 	my @all_pages = (
-		@{ $by_date{ $dates[ $dow - 1 ] }  // [] },
-		@{ $by_date{ monthly_event($day) } // [] },
-		@{ $by_date{$ymd}                  // [] }
+		@{ $by_date{ $dates[ $dow - 1 ] }      // [] },
+		@{ $by_date{ monthly_event($day) }     // [] },
+		@{ $by_date{ monthly_event_rev($day) } // [] },
+		@{ $by_date{$ymd}                      // [] }
 	);
 	my @by_time = sort { $a->{time} cmp $b->{time} }
 	  grep { defined $_->{time} } @all_pages;
@@ -386,9 +405,9 @@ if (@unknown) {
 	}
 }
 
-mw_edit('Chaosdorf Wiki:Current events', $content);
-mw_edit('Chaosdorf Wiki:Past events', $past_content);
-mw_edit('Template:Current events preview', $soon_content);
+mw_edit( 'Chaosdorf Wiki:Current events',   $content );
+mw_edit( 'Chaosdorf Wiki:Past events',      $past_content );
+mw_edit( 'Template:Current events preview', $soon_content );
 
 $mw->logout();
 

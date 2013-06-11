@@ -3,7 +3,6 @@
 ## License: WTFPL:
 ##   0. You just DO WHAT THE FUCK YOU WANT TO
 
-
 use strict;
 use warnings;
 use 5.012;
@@ -155,7 +154,7 @@ sub add_entry {
 	my $page     = $pageref->{page};
 	my $type     = $pageref->{type};
 	my $pagename = $pageref->{title} // $pageref->{page};
-	$pagename =~ s{\s+ $ymd}{}x;
+	$pagename =~ s{(\s+|/) $ymd}{}x;
 
 	$content .= "|-\n| ";
 	if ( $ymd ne $last_date ) {
@@ -259,10 +258,15 @@ sub get_data_from_template {
 				=~ m{ ^ \s* \| \s* date \s* = \s* monthly: \s* (?<date>....? \s+ [a-zA-Z]+) }ix
 				or $line
 				=~ m{ ^ \s* \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
+				or $line
+				=~ m{ ^ \s* \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ (?<monthspec> other ) \s+ month }ix
 			)
 		  )
 		{
 			$date = lc( $+{date} );
+			if ( $+{monthspec} ) {
+				$date .= '/2';
+			}
 		}
 		if (    $in_template
 			and $line =~ m{ ^ \s* \| \s* start \s* = \s* (?<time>.?.:..) }ix )
@@ -360,6 +364,13 @@ for ( 0 .. 66 ) {
 		@{ $by_date{ monthly_event_rev($day) } // [] },
 		@{ $by_date{$ymd}                      // [] }
 	);
+
+	if ( ( $day->month % 2 ) == 0 ) {
+		push( @all_pages, @{ $by_date{ monthly_event($day) . '/2' } // [] } );
+		push( @all_pages,
+			@{ $by_date{ monthly_event_rev($day) . '/2' } // [] } );
+	}
+
 	my @by_time = sort { $a->{time} cmp $b->{time} }
 	  grep { defined $_->{time} } @all_pages;
 	my @by_name = sort { $a->{title} cmp $b->{title} }

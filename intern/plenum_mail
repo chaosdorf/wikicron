@@ -18,13 +18,24 @@ use MIME::Words qw(encode_mimewords);
 
 our $VERSION = '0.0';
 
-my $date = DateTime->now( time_zone => 'Europe/Berlin' )->add(
-	DateTime::Duration->new(days => 1));
+my $re_ignored = qr{
+	^ (?: Deadline: \s Sonntag )
+	| (?: Danach \s bitte \s keine )
+	| (?: \* \s \[nickname\] )
+	| (?: \#\# \s Titel \s des \s (?: Berichts | Beschlusses ) )
+	| (?: Hier \s Vorschläge \s aufschreiben )
+	| (?: Formulierung \s beachten, \s alle )
+	| (?: Vorschlag: \s Dinge \s von \s Relevanz )
+	| (?: Ende: \s \[..:..\] )
+}x;
+
+my $date = DateTime->now( time_zone => 'Europe/Berlin' )
+  ->add( DateTime::Duration->new( days => 2 ) );
 
 chdir('/home/derf/var/svn/intern.chaosdorf.de')
-	or die("Failed to chdir\n");
+  or die("Failed to chdir\n");
 
-my $ymd = $date->strftime('%Y/%m-%d');
+my $ymd  = $date->strftime('%Y/%m-%d');
 my $repo = Git->repository();
 
 $repo->command_noisy('pull');
@@ -32,25 +43,28 @@ $repo->command_noisy('pull');
 my $body = q{};
 my $skip = 1;
 
-for my $line (read_file("plenum/entry/${ymd}.mdwn")) {
-	if ($skip and not $line =~ m{^#}o) {
+for my $line ( read_file("plenum/entry/${ymd}.mdwn") ) {
+	if ( $skip and not $line =~ m{^#}o ) {
 		next;
 	}
 	else {
 		$skip = 0;
-		$body .= $line;
+		if ( $line !~ $re_ignored ) {
+			$body .= $line;
+		}
 	}
 }
 
-if (not length($body)) {
+if ( not length($body) ) {
 	exit 0;
 }
 
 my $mail = Email::Simple->create(
 	header => [
-		To => 'intern@chaosdorf.de',
-		From => '"Cron" <derf@finalrewind.org>',
-		Subject => encode_mimewords("Plenumsankündigung $ymd", Charset => 'UTF-8'),
+		To   => 'intern@chaosdorf.de',
+		From => '"Cron" <derf@chaosdorf.de>',
+		Subject =>
+		  encode_mimewords( "Plenumsankündigung $ymd", Charset => 'UTF-8' ),
 		'Content-Type' => 'text/plain; charset=UTF-8',
 	],
 	body => $body,

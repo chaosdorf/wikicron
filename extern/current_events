@@ -26,10 +26,15 @@ my $content = <<'EOF';
 * [http://flux.derf0.net/cccd.ics ical export]
 * [[Chaosdorf Wiki:Past events|Archiv]]
 
-{| cellpadding="3" cellspacing="0" style="<!--
-    --> margin-bottom: 0.5em; margin-left: 1em; padding: 0; text-align: left; <!--
-    --> border: none; background-color: white; color: black;"
+{| class="wikitable"
 |-
+! Mo
+! Di
+! Mi
+! Do
+! Fr
+! Sa
+! So
 EOF
 
 my $soon_content = <<'EOF';
@@ -49,7 +54,7 @@ Vergangene Events (ohne Wiederkehrende, nur Einzeltermine)
 EOF
 
 my $soon_cnt  = 3;
-my $icalfile  = '/home/derf/web/net.derf0.flux/out/cccd.ics';
+my $icalfile  = '/home/derf/cccd.ics';
 my $ical      = Data::ICal->new();
 my $last_date = q{};
 my $today     = DateTime->now(
@@ -107,13 +112,15 @@ sub write_ical {
 	open( my $fh, '>:encoding(utf-8)', $icalfile );
 	print $fh $caltext;
 	close($fh);
+
+	system("scp -q $icalfile extern.chaosdorf.de:public_html");
 }
 
 sub add_ical {
 	my ( $date, $pageref ) = @_;
 
 	my $time     = $pageref->{time};
-	my $page     = $pageref->{page};
+	my $page     = $pageref->{page} // q{};
 	my $type     = $pageref->{type};
 	my $pagename = $pageref->{title} // $pageref->{page};
 	my $duration = $pageref->{duration} // 4;
@@ -150,41 +157,45 @@ sub add_entry {
 	my ( $date, $pageref ) = @_;
 	my $ymd = $date->ymd;
 
-	my $time     = $pageref->{time} // q{};
-	my $page     = $pageref->{page};
-	my $type     = $pageref->{type};
-	my $pagename = $pageref->{title} // $pageref->{page};
-	$pagename =~ s{(\s+|/) $ymd}{}x;
+	if ($ymd ne $last_date) {
+		if ($date->day_of_week == 1) {
+			$content .= "|-\n";
+		}
+		$content .= '| style="height: 7em; min-width: 10em; max-width: 10%; vertical-align: top;"| ';
+		$content .= $date->strftime("<span style=\"color: #666666;\">%b %d</span><br/>\n");
+	}
 
-	$content .= "|-\n| ";
-	if ( $ymd ne $last_date ) {
-		$content .= $date->strftime('%a');
-	}
-	$content .= "\n| ";
-	if ( $ymd ne $last_date ) {
-		$content .= $date->strftime('%d. %b');
-	}
-	$content .= "\n| ";
-	$content .= sprintf( '%s [[%s|%s]]', $time, $page, $pagename );
-	if ( $type and not( $type ~~ \@type_blacklist ) ) {
-		$content .= sprintf( ' (%s)', translate_type($type) );
-	}
-	$content .= "\n";
-	$last_date = $ymd;
+	if ($pageref) {
+		my $time     = $pageref->{time} // q{};
+		my $page     = $pageref->{page};
+		my $type     = $pageref->{type};
+		my $pagename = $pageref->{title} // $pageref->{page};
+		$pagename =~ s{(\s+|/) $ymd}{}x;
 
-	if ( $soon_cnt > 0 ) {
-		$soon_cnt--;
-		$soon_content .= sprintf(
-			"-->{{Infobox row | name = %s | value = %s [[%s|%s]] }}<!--\n",
-			$date->strftime('%b %d'),
-			$time, $page, $pagename
-		);
-		if ( $soon_cnt == 0 ) {
-			$soon_content .= "-->\n|}\n";
+		$content .= '<span>';
+		$content .= sprintf('%s [[%s|%s]]', $time, $page, $pagename);
+#		if ( $type and not( $type ~~ \@type_blacklist ) ) {
+#			$content .= sprintf( ' (%s)', translate_type($type) );
+#		}
+		$content .= "</span><br/>\n";
+
+		if ( $soon_cnt > 0 and DateTime->compare($date, $today) == 1) {
+			$soon_cnt--;
+			$soon_content .= sprintf(
+				"-->{{Infobox row | name = %s | value = %s [[%s|%s]] }}<!--\n",
+				$date->strftime('%b %d'),
+				$time, $page, $pagename
+			);
+			if ( $soon_cnt == 0 ) {
+				$soon_content .= "-->\n|}\n";
+			}
 		}
 	}
 
+	$last_date = $ymd;
+
 	add_ical( $date, $pageref );
+	return;
 }
 
 sub add_past_entry {
@@ -323,6 +334,7 @@ my $day = DateTime->now(
 $day->set_hour(0);
 $day->set_minute(0);
 $day->set_second(0);
+$day->truncate(to => 'week');
 
 my @pages = @{
 	$mw->list(
@@ -354,7 +366,7 @@ for my $page ( map { $_->{title} } @pages ) {
 	}
 }
 
-for ( 0 .. 66 ) {
+for ( 0 .. 48 ) {
 	my $ymd = $day->ymd;
 	my $dow = $day->day_of_week;
 
@@ -375,6 +387,10 @@ for ( 0 .. 66 ) {
 	  grep { defined $_->{time} } @all_pages;
 	my @by_name = sort { $a->{title} cmp $b->{title} }
 	  grep { not defined $_->{time} } @all_pages;
+
+	if (not @by_time and not @by_name) {
+		add_entry( $day, undef );
+	}
 
 	for my $page ( @by_time, @by_name ) {
 		add_entry( $day, $page );
@@ -420,6 +436,6 @@ mw_edit( 'Chaosdorf Wiki:Current events',   $content );
 mw_edit( 'Chaosdorf Wiki:Past events',      $past_content );
 mw_edit( 'Template:Current events preview', $soon_content );
 
-$mw->logout();
+$mw->logout;
 
 write_ical;

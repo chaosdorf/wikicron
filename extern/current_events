@@ -13,6 +13,7 @@ use Data::ICal;
 use Data::ICal::Entry::Event;
 use DateTime;
 use DateTime::Format::ICal;
+use DateTime::Format::Strptime;
 use MediaWiki::API;
 
 our $VERSION = '0.0';
@@ -157,12 +158,14 @@ sub add_entry {
 	my ( $date, $pageref ) = @_;
 	my $ymd = $date->ymd;
 
-	if ($ymd ne $last_date) {
-		if ($date->day_of_week == 1) {
+	if ( $ymd ne $last_date ) {
+		if ( $date->day_of_week == 1 ) {
 			$content .= "|-\n";
 		}
-		$content .= '| style="height: 7em; min-width: 10em; max-width: 10%; vertical-align: top;"| ';
-		$content .= $date->strftime("<span style=\"color: #666666;\">%b %d</span><br/>\n");
+		$content
+		  .= '| style="height: 7em; min-width: 10em; max-width: 10%; vertical-align: top;"| ';
+		$content .= $date->strftime(
+			"<span style=\"color: #666666;\">%b %d</span><br/>\n");
 	}
 
 	if ($pageref) {
@@ -173,13 +176,14 @@ sub add_entry {
 		$pagename =~ s{(\s+|/) $ymd}{}x;
 
 		$content .= '<span>';
-		$content .= sprintf('%s [[%s|%s]]', $time, $page, $pagename);
-#		if ( $type and not( $type ~~ \@type_blacklist ) ) {
-#			$content .= sprintf( ' (%s)', translate_type($type) );
-#		}
+		$content .= sprintf( '%s [[%s|%s]]', $time, $page, $pagename );
+
+		#		if ( $type and not( $type ~~ \@type_blacklist ) ) {
+		#			$content .= sprintf( ' (%s)', translate_type($type) );
+		#		}
 		$content .= "</span><br/>\n";
 
-		if ( $soon_cnt > 0 and DateTime->compare($date, $today) == 1) {
+		if ( $soon_cnt > 0 and DateTime->compare( $date, $today ) == 1 ) {
 			$soon_cnt--;
 			$soon_content .= sprintf(
 				"-->{{Infobox row | name = %s | value = %s [[%s|%s]] }}<!--\n",
@@ -327,6 +331,29 @@ sub mw_edit {
 	) || die $mw->{error}->{code} . ': ' . $mw->{error}->{details};
 }
 
+my $recentchanges = $mw->list(
+	{
+		action  => 'query',
+		list    => 'recentchanges',
+		rclimit => 1,
+	},
+	{ max => 1, }
+);
+
+my $rcdate = DateTime::Format::Strptime->new(
+	pattern   => '%FT%TZ',
+	time_zone => 'UTC',
+);
+
+my $last_change = $rcdate->parse_datetime( $recentchanges->[0]->{timestamp} );
+
+if ( $ARGV[0] ) {
+	$last_change->add( hours => $ARGV[0] );
+	if ( DateTime->compare( $today, $last_change ) == 1 ) {
+		exit(0);
+	}
+}
+
 my $day = DateTime->now(
 	time_zone => 'Europe/Berlin',
 	locale    => 'de_DE'
@@ -334,7 +361,7 @@ my $day = DateTime->now(
 $day->set_hour(0);
 $day->set_minute(0);
 $day->set_second(0);
-$day->truncate(to => 'week');
+$day->truncate( to => 'week' );
 
 my @pages = @{
 	$mw->list(
@@ -346,7 +373,7 @@ my @pages = @{
 		},
 		{ max => 20, }
 	)
-  };
+};
 
 my ( %by_date, @unknown );
 
@@ -388,7 +415,7 @@ for ( 0 .. 48 ) {
 	my @by_name = sort { $a->{title} cmp $b->{title} }
 	  grep { not defined $_->{time} } @all_pages;
 
-	if (not @by_time and not @by_name) {
+	if ( not @by_time and not @by_name ) {
 		add_entry( $day, undef );
 	}
 

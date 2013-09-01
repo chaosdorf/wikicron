@@ -62,6 +62,7 @@ my $today     = DateTime->now(
 	time_zone => 'UTC',
 	locale    => 'de_DE'
 );
+my $yesterday = $today->clone->subtract( days => 1 );
 
 my @dates = qw(
   monday tuesday wednesday thursday friday saturday sunday
@@ -163,7 +164,11 @@ sub add_entry {
 			$content .= "|-\n";
 		}
 		$content
-		  .= '| style="height: 7em; min-width: 10em; max-width: 10%; vertical-align: top;"| ';
+		  .= '| style="height: 7em; min-width: 10em; max-width: 10%; vertical-align: top;';
+		if ( DateTime->compare( $date, $yesterday ) == -1 ) {
+			$content .= ' background-color: #cccccc;';
+		}
+		$content .= '"| ';
 		$content .= $date->strftime(
 			"<span style=\"color: #666666;\">%b %d</span><br/>\n");
 	}

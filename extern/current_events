@@ -188,7 +188,7 @@ sub add_entry {
 		#		}
 		$content .= "</span><br/>\n";
 
-		if ( $soon_cnt > 0 and DateTime->compare( $date, $today ) == 1 ) {
+		if ( $soon_cnt > 0 and DateTime->compare( $date, $yesterday ) == 1 ) {
 			$soon_cnt--;
 			$soon_content .= sprintf(
 				"-->{{Infobox row | name = %s | value = %s [[%s|%s]] }}<!--\n",

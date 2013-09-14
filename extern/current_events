@@ -353,7 +353,7 @@ my $rcdate = DateTime::Format::Strptime->new(
 my $last_change = $rcdate->parse_datetime( $recentchanges->[0]->{timestamp} );
 
 if ( $ARGV[0] ) {
-	$last_change->add( hours => $ARGV[0] );
+	$last_change->add( minutes => $ARGV[0] );
 	if ( DateTime->compare( $today, $last_change ) == 1 ) {
 		exit(0);
 	}

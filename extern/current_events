@@ -199,11 +199,11 @@ sub add_entry {
 				$soon_content .= "-->\n|}\n";
 			}
 		}
+		add_ical( $date, $pageref );
 	}
 
 	$last_date = $ymd;
 
-	add_ical( $date, $pageref );
 	return;
 }
 
@@ -262,24 +262,21 @@ sub get_data_from_template {
 	my @lines = split( /\n/, mw_get($pagename) );
 	my $in_template = 0;
 	for my $line (@lines) {
-		if ( $line =~ m/ ^ \s* {{Event \s* $ /ox ) {
+		if ( $line =~ m/ ^ \s* {{ \s* Event \s* /ox ) {
 			$in_template = 1;
-		}
-		if ( $line =~ m/ ^ \s* }} \s* $ /ox ) {
-			$in_template = 0;
 		}
 		if (
 			$in_template
 			and
-			( $line =~ m{ ^ \s* \| \s* date \s* = \s* (?<date>....-..-..) }ix
+			( $line =~ m{ \| \s* date \s* = \s* (?<date>....-..-..) }ix
 				or $line
-				=~ m{ ^ \s* \| \s* date \s* = \s* every \s+ (?<date> .+ ) }ix
+				=~ m{ \| \s* date \s* = \s* every \s+ (?<date> .+ ) }ix
 				or $line
-				=~ m{ ^ \s* \| \s* date \s* = \s* monthly: \s* (?<date>....? \s+ [a-zA-Z]+) }ix
+				=~ m{ \| \s* date \s* = \s* monthly: \s* (?<date>....? \s+ [a-zA-Z]+) }ix
 				or $line
-				=~ m{ ^ \s* \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
+				=~ m{ \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
 				or $line
-				=~ m{ ^ \s* \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ (?<monthspec> other ) \s+ month }ix
+				=~ m{ \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ (?<monthspec> other ) \s+ month }ix
 			)
 		  )
 		{
@@ -289,20 +286,23 @@ sub get_data_from_template {
 			}
 		}
 		if (    $in_template
-			and $line =~ m{ ^ \s* \| \s* start \s* = \s* (?<time>.?.:..) }ix )
+			and $line =~ m{ \| \s* start \s* = \s* (?<time>.?.:..) }ix )
 		{
 			$time = $+{time};
 		}
 		if (    $in_template
-			and $line =~ m{ ^ \s* \| \s* type \s* = \s* (?<type>.+) }ix )
+			and $line =~ m{ \| \s* type \s* = \s* (?<type>.+) }ix )
 		{
 			$type = $+{type};
 		}
 		if (    $in_template
 			and $line
-			=~ m{ ^ \s* \| \s* duration \s* = \s* (?<duration>\d+) }ix )
+			=~ m{ \| \s* duration \s* = \s* (?<duration>\d+) }ix )
 		{
 			$duration = $+{duration};
+		}
+		if ( $line =~ m/ ^ \s* }} \s* $ /ox ) {
+			$in_template = 0;
 		}
 	}
 	return (

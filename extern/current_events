@@ -145,7 +145,7 @@ sub add_ical {
 		dtstart     => DateTime::Format::ICal->format_datetime($start),
 		dtstamp     => DateTime::Format::ICal->format_datetime($today),
 		duration    => "PT${duration}H00M",
-		location    => 'Hüttenstr. 25, Düsseldorf, DE',
+		location    => 'Chaosdorf',
 		sequence    => 0,
 		uid => DateTime::Format::ICal->format_datetime($start) . '@cccd',
 		url => "https://wiki.chaosdorf.de/${page}",

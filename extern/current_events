@@ -173,7 +173,7 @@ sub add_entry {
 			"<span style=\"color: #666666;\">%b %d</span><br/>\n");
 	}
 
-	if ($pageref) {
+	if ( $pageref and not( $ymd ~~ $pageref->{exceptions} ) ) {
 		my $time     = $pageref->{time} // q{};
 		my $page     = $pageref->{page};
 		my $type     = $pageref->{type};
@@ -258,6 +258,7 @@ sub monthly_event_rev {
 sub get_data_from_template {
 	my ($pagename) = @_;
 	my ( $date, $time, $type, $duration );
+	my ( @exceptdates, @additionaldates );
 
 	my @lines = split( /\n/, mw_get($pagename) );
 	my $in_template = 0;
@@ -267,8 +268,7 @@ sub get_data_from_template {
 		}
 		if (
 			$in_template
-			and
-			( $line =~ m{ \| \s* date \s* = \s* (?<date>....-..-..) }ix
+			and (  $line =~ m{ \| \s* date \s* = \s* (?<date>....-..-..) }ix
 				or $line
 				=~ m{ \| \s* date \s* = \s* every \s+ (?<date> .+ ) }ix
 				or $line
@@ -286,6 +286,16 @@ sub get_data_from_template {
 			}
 		}
 		if (    $in_template
+			and $line =~ m{ \| \s* exceptdates \s* = \s* (?<dates>.*) }ix )
+		{
+			@exceptdates = split( /,\s*/, $+{dates} );
+		}
+		if (    $in_template
+			and $line =~ m{ \| \s* additionaldates \s* = \s* (?<dates>.*) }ix )
+		{
+			@additionaldates = split( /,\s*/, $+{dates} );
+		}
+		if (    $in_template
 			and $line =~ m{ \| \s* start \s* = \s* (?<time>.?.:..) }ix )
 		{
 			$time = $+{time};
@@ -296,8 +306,7 @@ sub get_data_from_template {
 			$type = $+{type};
 		}
 		if (    $in_template
-			and $line
-			=~ m{ \| \s* duration \s* = \s* (?<duration>\d+) }ix )
+			and $line =~ m{ \| \s* duration \s* = \s* (?<duration>\d+) }ix )
 		{
 			$duration = $+{duration};
 		}
@@ -308,10 +317,12 @@ sub get_data_from_template {
 	return (
 		$date,
 		{
-			page     => $pagename,
-			time     => $time,
-			type     => $type,
-			duration => $duration,
+			exceptions => \@exceptdates,
+			additions  => \@additionaldates,
+			page       => $pagename,
+			time       => $time,
+			type       => $type,
+			duration   => $duration,
 		}
 	);
 }
@@ -342,7 +353,9 @@ my $recentchanges = $mw->list(
 		list    => 'recentchanges',
 		rclimit => 1,
 	},
-	{ max => 1, }
+	{
+		max => 1,
+	}
 );
 
 my $rcdate = DateTime::Format::Strptime->new(
@@ -376,7 +389,9 @@ my @pages = @{
 			cmtitle => 'Category:Events',
 			cmlimit => 100,
 		},
-		{ max => 20, }
+		{
+			max => 20,
+		}
 	)
 };
 

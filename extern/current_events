@@ -24,7 +24,7 @@ my $content = <<'EOF';
 
 * [[Help:Current events|Über diese Seite]]
 * [[Form:Event|Event anlegen]]
-* [http://flux.derf0.net/cccd.ics ical export]
+* [https://chaosdorf.de/~derf/cccd.ics ical export]
 * [[Chaosdorf Wiki:Past events|Archiv]]
 
 {| class="wikitable"

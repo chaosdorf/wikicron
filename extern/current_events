@@ -410,6 +410,11 @@ for my $page ( map { $_->{title} } @pages ) {
 		else {
 			push( @unknown, $page );
 		}
+		if ( $pageref->{additions} ) {
+			for my $date ( @{ $pageref->{additions} } ) {
+				push( @{ $by_date{$date} }, $pageref );
+			}
+		}
 	}
 }
 

@@ -254,10 +254,8 @@ sub add_past_entry {
 	my $pagename = $pageref->{title} // $pageref->{page};
 	$pagename =~ s{\s+ $ymd}{}x;
 
-	if ( $ymd ne $last_date ) {
-		$past_content .= $date->strftime("\n== %A, %d. %B %Y ==\n");
-	}
-	$past_content .= sprintf( '* %s [[%s|%s]]', $time, $page, $pagename );
+	$past_content .= $date->strftime('* %A, %d. %B %Y ');
+	$past_content .= sprintf( '- %s [[%s|%s]]', $time, $page, $pagename );
 	if ( $type and not( $type ~~ \@type_blacklist ) ) {
 		$past_content .= sprintf( ' (%s)', translate_type($type) );
 	}

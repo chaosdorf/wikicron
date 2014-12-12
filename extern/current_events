@@ -70,6 +70,8 @@ my @dates = qw(
 my @blacklist = ( qw(Template:Freitagsfoo Freitagsfoo), 'Further Foo' );
 my @type_blacklist = qw(Meet-Up);
 
+my ( %by_date, @unknown );
+
 my $mw = MediaWiki::API->new(
 	{
 		api_url  => 'https://wiki.chaosdorf.de/api.php',
@@ -125,7 +127,7 @@ sub add_ical {
 	my $page     = $pageref->{page} // q{};
 	my $type     = $pageref->{type};
 	my $pagename = $pageref->{title} // $pageref->{page};
-	my $duration = $pageref->{duration} // 4;
+	my $duration = $pageref->{duration};
 
 	my $vevent = Data::ICal::Entry::Event->new();
 
@@ -174,10 +176,40 @@ sub add_entry {
 	}
 
 	if ( $pageref and not( $ymd ~~ $pageref->{exceptions} ) ) {
-		my $time     = $pageref->{time} // q{};
+		my $time     = $pageref->{time} // '0:00';
 		my $page     = $pageref->{page};
 		my $type     = $pageref->{type};
 		my $pagename = $pageref->{title} // $pageref->{page};
+		my $duration = $pageref->{duration};
+
+		my $duration_iterator = $date->clone;
+
+		my ( $th, $tm ) = ( $time =~ m{ (.?.) : (..) }ox );
+		$duration_iterator->add(
+			hours   => $th,
+			minutes => $tm
+		);
+
+		$duration_iterator->add( hours => $duration > 24 ? 24 : $duration );
+
+		if ( $duration_iterator->day != $date->day ) {
+			my %newref = %{$pageref};
+			$newref{duration} -= 24 - $th;
+			$newref{multiday_dup} = 1;
+			$newref{page} =~ s{(\s+|/) $ymd}{}x;
+			delete $newref{time};
+			push( @{ $by_date{ $duration_iterator->ymd } }, \%newref );
+		}
+
+		if ( $pageref->{multiday_dup} ) {
+			if ( $duration >= 24 ) {
+				$time = '∞';
+			}
+			else {
+				$time = sprintf( '%02d:00<', $duration );
+			}
+		}
+
 		$pagename =~ s{(\s+|/) $ymd}{}x;
 
 		$content .= '<span>';
@@ -188,7 +220,10 @@ sub add_entry {
 		#		}
 		$content .= "</span><br/>\n";
 
-		if ( $soon_cnt > 0 and DateTime->compare( $date, $yesterday ) == 1 ) {
+		if (    $soon_cnt > 0
+			and DateTime->compare( $date, $yesterday ) == 1
+			and not $pageref->{multiday_dup} )
+		{
 			$soon_cnt--;
 			$soon_content .= sprintf(
 				"-->{{Infobox row | name = %s | value = %s [[%s|%s]] }}<!--\n",
@@ -199,7 +234,9 @@ sub add_entry {
 				$soon_content .= "-->\n|}\n";
 			}
 		}
-		add_ical( $date, $pageref );
+		if ( not $pageref->{multiday_dup} ) {
+			add_ical( $date, $pageref );
+		}
 	}
 
 	$last_date = $ymd;
@@ -322,7 +359,7 @@ sub get_data_from_template {
 			page       => $pagename,
 			time       => $time,
 			type       => $type,
-			duration   => $duration,
+			duration   => $duration // 4,
 		}
 	);
 }
@@ -363,6 +400,11 @@ my $rcdate = DateTime::Format::Strptime->new(
 	time_zone => 'UTC',
 );
 
+my $evdate = DateTime::Format::Strptime->new(
+	pattern   => '%Y-%m-%d %H:%M',
+	time_zone => 'Europe/Berlin',
+);
+
 my $last_change = $rcdate->parse_datetime( $recentchanges->[0]->{timestamp} );
 
 if ( $ARGV[0] ) {
@@ -394,8 +436,6 @@ my @pages = @{
 		}
 	)
 };
-
-my ( %by_date, @unknown );
 
 for my $page ( map { $_->{title} } @pages ) {
 	if ( $page =~ m{ ^ .+ \s+ (?<date> \d{4}-\d{2}-\d{2}) $ }ox ) {
@@ -465,9 +505,9 @@ for ( 0 .. 1100 ) {
 
 	my @all_pages = ( @{ $by_date{$ymd} // [] } );
 	my @by_time = sort { $a->{time} cmp $b->{time} }
-	  grep { defined $_->{time} } @all_pages;
+	  grep { defined $_->{time} and not $_->{multiday_dup} } @all_pages;
 	my @by_name = sort { $a->{title} cmp $b->{title} }
-	  grep { not defined $_->{time} } @all_pages;
+	  grep { not defined $_->{time} and not $_->{multiday_dup} } @all_pages;
 
 	for my $page ( @by_time, @by_name ) {
 		add_past_entry( $day, $page );

@@ -197,7 +197,7 @@ sub add_entry {
 			$newref{duration} -= 24 - $th;
 			$newref{multiday_dup} = 1;
 			$newref{page} =~ s{(\s+|/) $ymd}{}x;
-			delete $newref{time};
+			$newref{time} = '0:00';
 			push( @{ $by_date{ $duration_iterator->ymd } }, \%newref );
 		}
 
@@ -292,7 +292,7 @@ sub monthly_event_rev {
 
 sub get_data_from_template {
 	my ($pagename) = @_;
-	my ( $date, $time, $type, $duration );
+	my ( $title, $date, $time, $type, $duration );
 	my ( @exceptdates, @additionaldates );
 
 	my @lines = split( /\n/, mw_get($pagename) );
@@ -319,6 +319,9 @@ sub get_data_from_template {
 			if ( $+{monthspec} ) {
 				$date .= '/2';
 			}
+		}
+		if ( $in_template and $line =~ m{ \| \s* title \s* = \s* (?<title>.+) }ix ) {
+			$title = $+{title};
 		}
 		if (    $in_template
 			and $line =~ m{ \| \s* exceptdates \s* = \s* (?<dates>.*) }ix )
@@ -355,6 +358,7 @@ sub get_data_from_template {
 			exceptions => \@exceptdates,
 			additions  => \@additionaldates,
 			page       => $pagename,
+			title      => $title // $pagename,
 			time       => $time,
 			type       => $type,
 			duration   => $duration // 4,

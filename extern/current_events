@@ -222,7 +222,7 @@ sub add_entry {
 
 		if (    $soon_cnt > 0
 			and DateTime->compare( $date, $yesterday ) == 1
-			and not $pageref->{multiday_dup} )
+			and not ($pageref->{multiday_dup} and $pageref->{duration} < 18) )
 		{
 			$soon_cnt--;
 			$soon_content .= sprintf(
@@ -419,11 +419,7 @@ if ( $ARGV[0] ) {
 my $day = DateTime->now(
 	time_zone => 'Europe/Berlin',
 	locale    => 'de_DE'
-);
-$day->set_hour(0);
-$day->set_minute(0);
-$day->set_second(0);
-$day->truncate( to => 'week' );
+)->truncate( to => 'week' );
 
 my @pages = @{
 	$mw->list(
@@ -492,13 +488,10 @@ for ( 0 .. 48 ) {
 	$day->add( days => 1 );
 }
 
-$day = DateTime->now(
+$day = DateTime->today(
 	time_zone => 'Europe/Berlin',
 	locale    => 'de_DE'
 );
-$day->set_hour(0);
-$day->set_minute(0);
-$day->set_second(0);
 
 # past three years
 for ( 0 .. 1100 ) {

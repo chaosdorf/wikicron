@@ -62,7 +62,8 @@ my $today     = DateTime->now(
 	time_zone => 'UTC',
 	locale    => 'de_DE'
 );
-my $yesterday = $today->clone->subtract( days => 1 );
+my $yesterday
+  = $today->clone->subtract( days => 1 );    #->set_hour(23)->set_minute(59);
 
 my @dates = qw(
   monday tuesday wednesday thursday friday saturday sunday
@@ -222,7 +223,7 @@ sub add_entry {
 
 		if (    $soon_cnt > 0
 			and DateTime->compare( $date, $yesterday ) == 1
-			and not ($pageref->{multiday_dup} and $pageref->{duration} < 18) )
+			and not( $pageref->{multiday_dup} and $pageref->{duration} < 18 ) )
 		{
 			$soon_cnt--;
 			$soon_content .= sprintf(
@@ -290,10 +291,31 @@ sub monthly_event_rev {
 	return 'none';
 }
 
+sub parse_date_str {
+	my ($datestr) = @_;
+
+	if (   $datestr =~ m{ (?<date>....-..-..) }ix
+		or $datestr =~ m{ every \s+ (?<date> .+ ) }ix
+		or $datestr =~ m{ monthly: \s* (?<date>....? \s+ [a-zA-Z]+) }ix
+		or $datestr
+		=~ m{ (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
+		or $datestr
+		=~ m{ (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ (?<monthspec> other ) \s+ month }ix
+	  )
+	{
+		my $date = lc( $+{date} );
+		if ( $+{monthspec} ) {
+			$date .= '/2';
+		}
+		return $date;
+	}
+	return;
+}
+
 sub get_data_from_template {
 	my ($pagename) = @_;
-	my ( $title, $date, $time, $type, $duration );
-	my ( @exceptdates, @additionaldates );
+	my ( $title, $time, $type, $duration );
+	my ( @dates, @exceptdates );
 
 	my @lines = split( /\n/, mw_get($pagename) );
 	my $in_template = 0;
@@ -301,37 +323,30 @@ sub get_data_from_template {
 		if ( $line =~ m/ ^ \s* {{ \s* Event \s* /ox ) {
 			$in_template = 1;
 		}
-		if (
-			$in_template
-			and (  $line =~ m{ \| \s* date \s* = \s* (?<date>....-..-..) }ix
-				or $line
-				=~ m{ \| \s* date \s* = \s* every \s+ (?<date> .+ ) }ix
-				or $line
-				=~ m{ \| \s* date \s* = \s* monthly: \s* (?<date>....? \s+ [a-zA-Z]+) }ix
-				or $line
-				=~ m{ \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
-				or $line
-				=~ m{ \| \s* date \s* = \s* (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ (?<monthspec> other ) \s+ month }ix
-			)
-		  )
+		if ( $in_template
+			and ( $line =~ m{ \| \s* date \s* = \s* (?<date> .+ ) $ }ix ) )
 		{
-			$date = lc( $+{date} );
-			if ( $+{monthspec} ) {
-				$date .= '/2';
+			for my $part ( split( /,\s*/, $+{date} ) ) {
+				my $date = parse_date_str($part);
+				if ($date) {
+					push( @dates, $date );
+				}
 			}
 		}
-		if ( $in_template and $line =~ m{ \| \s* title \s* = \s* (?<title>.+) }ix ) {
+		if (    $in_template
+			and $line =~ m{ \| \s* title \s* = \s* (?<title>.+) }ix )
+		{
 			$title = $+{title};
 		}
 		if (    $in_template
 			and $line =~ m{ \| \s* exceptdates \s* = \s* (?<dates>.*) }ix )
 		{
-			@exceptdates = split( /,\s*/, $+{dates} );
+			push( @exceptdates, split( /,\s*/, $+{dates} ) );
 		}
 		if (    $in_template
 			and $line =~ m{ \| \s* additionaldates \s* = \s* (?<dates>.*) }ix )
 		{
-			@additionaldates = split( /,\s*/, $+{dates} );
+			push( @dates, split( /,\s*/, $+{dates} ) );
 		}
 		if (    $in_template
 			and $line =~ m{ \| \s* start \s* = \s* (?<time>.?.:..) }ix )
@@ -353,10 +368,9 @@ sub get_data_from_template {
 		}
 	}
 	return (
-		$date,
+		[@dates],
 		{
 			exceptions => \@exceptdates,
-			additions  => \@additionaldates,
 			page       => $pagename,
 			title      => $title // $pagename,
 			time       => $time,
@@ -441,17 +455,14 @@ for my $page ( map { $_->{title} } @pages ) {
 		push( @{ $by_date{ $+{date} } }, $pageref );
 	}
 	elsif ( not( $page ~~ \@blacklist ) ) {
-		my ( $date, $pageref ) = get_data_from_template($page);
-		if ($date) {
-			push( @{ $by_date{$date} }, $pageref );
+		my ( $dates, $pageref ) = get_data_from_template($page);
+		if ( $dates and @{$dates} ) {
+			for my $date ( @{$dates} ) {
+				push( @{ $by_date{$date} }, $pageref );
+			}
 		}
 		else {
 			push( @unknown, $page );
-		}
-		if ( $pageref->{additions} ) {
-			for my $date ( @{ $pageref->{additions} } ) {
-				push( @{ $by_date{$date} }, $pageref );
-			}
 		}
 	}
 }

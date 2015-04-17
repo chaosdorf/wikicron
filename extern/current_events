@@ -197,7 +197,6 @@ sub add_entry {
 			my %newref = %{$pageref};
 			$newref{duration} -= 24 - $th;
 			$newref{multiday_dup} = 1;
-			$newref{page} =~ s{(\s+|/) $ymd}{}x;
 			$newref{time} = '0:00';
 			push( @{ $by_date{ $duration_iterator->ymd } }, \%newref );
 		}

@@ -36,6 +36,10 @@ if ( not -e "plenum/entry/$year" ) {
 	mkdir("plenum/entry/$year");
 }
 
+if ( -e "plenum/entry/${ymd}.mdwn" ) {
+	exit(0);
+}
+
 copy( 'plenum/entry/template.mdwn', "plenum/entry/${ymd}.mdwn" )
   or die("Copy failed: $!");
 

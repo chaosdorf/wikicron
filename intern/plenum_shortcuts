@@ -1,0 +1,47 @@
+#!/usr/bin/env perl
+## Copyright © 2015 by Daniel Friesel <derf@chaosdorf.de>
+## License: WTFPL:
+##   0. You just DO WHAT THE FUCK YOU WANT TO
+
+use strict;
+use warnings;
+use 5.012;
+use utf8;
+
+use DateTime;
+use Encode qw(decode encode);
+use File::Slurp qw(read_file write_file);
+use Git;
+
+our $VERSION = '0.0';
+
+my $this_week_dt
+  = DateTime->now( time_zone => 'Europe/Berlin' )->add( days => 1 );
+my $next_week_dt = $this_week_dt->clone->add( days => 7 );
+
+my $this_week = $this_week_dt->strftime('%Y/%m-%d');
+my $next_week = $next_week_dt->strftime('%Y/%m-%d');
+
+if ( $this_week_dt->day_of_week != 2 ) {
+	die( 'Target date is ' . $this_week_dt->day_name . ", not Tuesday!\n" );
+}
+
+chdir('/home/derf/var/svn/intern.chaosdorf.de')
+  or die("Failed to chdir\n");
+
+my $repo = Git->repository();
+
+$repo->command_noisy('pull');
+
+my $plenum_site = decode( 'utf8', read_file('verein/plenum.mdwn') );
+$plenum_site =~ s{ \[\[Plenum \s diese \s Woche \| plenum/entry/..../..-..\]\] }
+	{[[Plenum diese Woche|plenum/entry/$this_week]]}x;
+$plenum_site
+  =~ s{ \[\[Plenum \s nächste \s Woche \| plenum/entry/..../..-..\]\] }
+	{[[Plenum nächste Woche|plenum/entry/$next_week]]}x;
+
+write_file( 'verein/plenum.mdwn', encode( 'utf8', $plenum_site ) );
+
+$repo->command_noisy( 'add', 'verein/plenum.mdwn' );
+$repo->command_noisy( 'commit', '-m', 'Plenums-Shortcuts' );
+$repo->command_noisy('push');

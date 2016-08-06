@@ -9,6 +9,8 @@ use 5.012;
 use utf8;
 use autodie qw(:all);
 
+no if $] >= 5.018, warnings => 'experimental::smartmatch';
+
 use Data::ICal;
 use Data::ICal::Entry::Event;
 use DateTime;
@@ -440,7 +442,7 @@ my @pages = @{
 			action  => 'query',
 			list    => 'categorymembers',
 			cmtitle => 'Category:Events',
-			cmlimit => 100,
+			cmlimit => 500,
 		},
 		{
 			max => 20,
@@ -466,7 +468,7 @@ for my $page ( map { $_->{title} } @pages ) {
 	}
 }
 
-for ( 0 .. 48 ) {
+for ( 0 .. 62 ) {
 	my $ymd = $day->ymd;
 	my $dow = $day->day_of_week;
 

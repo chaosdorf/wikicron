@@ -136,6 +136,12 @@ sub add_ical {
 
 	$page =~ s{ }{_}g;
 
+	my $duration_str = "PT${duration}H00M";
+	if ( $duration >= 24 ) {
+		$duration_str
+		  = sprintf( 'P%dDT%dH00M', int( $duration / 24 ), $duration % 24, );
+	}
+
 	my $start = $date->clone;
 	if ($time) {
 		my ( $th, $tm ) = ( $time =~ m{ (.?.) : (..) }ox );
@@ -149,11 +155,12 @@ sub add_ical {
 		description => $pagename,
 		dtstart     => DateTime::Format::ICal->format_datetime($start),
 		dtstamp     => DateTime::Format::ICal->format_datetime($today),
-		duration    => "PT${duration}H00M",
-		location    => 'Chaosdorf',
-		sequence    => 0,
-		uid => DateTime::Format::ICal->format_datetime($start) . '@cccd',
-		url => "https://wiki.chaosdorf.de/${page}",
+		duration    => $duration_str,
+		location =>
+'Chaosdorf Computer Club Duesseldorf, Huettenstr. 25, 40215 Duesseldorf',
+		sequence => 0,
+		uid      => DateTime::Format::ICal->format_datetime($start) . '@cccd',
+		url      => "https://wiki.chaosdorf.de/${page}",
 	);
 	$ical->add_entry($vevent);
 }
@@ -199,7 +206,7 @@ sub add_entry {
 			my %newref = %{$pageref};
 			$newref{duration} -= 24 - $th;
 			$newref{multiday_dup} = 1;
-			$newref{time} = '0:00';
+			$newref{time}         = '0:00';
 			push( @{ $by_date{ $duration_iterator->ymd } }, \%newref );
 		}
 

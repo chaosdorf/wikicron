@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-## Copyright © 2012,2013 by Daniel Friesel <derf@chaosdorf.de>
+## Copyright © 2012-2016 by Daniel Friesel <derf@chaosdorf.de>
 ## License: WTFPL:
 ##   0. You just DO WHAT THE FUCK YOU WANT TO
 
@@ -9,17 +9,26 @@ use warnings;
 use 5.012;
 
 use DateTime;
-use File::Copy;
+use Encode qw(decode encode);
+use File::Slurp qw(read_file write_file);
 use Git;
 
 our $VERSION = '0.0';
 
 my $date = DateTime->now( time_zone => 'Europe/Berlin' )
-  ->add( DateTime::Duration->new( days => 9 ) );
+  ->add( days => 9 );
 
 if ( $date->day_of_week != 2 ) {
 	die( 'Target date is ' . $date->day_name . ", not Tuesday!\n" );
 }
+
+my $friday_start = $date->clone->subtract(days => 4)->set(hour => 12, minute => 0, second => 0);
+my $friday_end = $friday_start->clone->add(days => 1);
+
+my $munin_url = sprintf('https://intern.chaosdorf.de/munin/static/dynazoom.html'
+	. '?plugin_name=chaosdorf.dn42%%2Ffeedback.chaosdorf.dn42%%2Fonline_ips_dorfmap'
+	. '&start_epoch=%d&stop_epoch=%d&size_x=800&size_y=400',
+	$friday_start->epoch, $friday_end->epoch);
 
 chdir('/home/derf/var/svn/intern.chaosdorf.de')
   or die("Failed to chdir\n");
@@ -40,8 +49,11 @@ if ( -e "plenum/entry/${ymd}.mdwn" ) {
 	exit(0);
 }
 
-copy( 'plenum/entry/template.mdwn', "plenum/entry/${ymd}.mdwn" )
-  or die("Copy failed: $!");
+my $content = decode('utf-8', read_file('plenum/entry/template.mdwn'));
+
+$content =~ s{^Anzahl Hosts: \[hosts\]/\[dhcp\]\K$}{ ([munin]($munin_url))}m;
+
+write_file("plenum/entry/${ymd}.mdwn", encode('utf-8', $content) );
 
 $repo->command_noisy( 'add', "plenum/entry/${ymd}.mdwn" );
 $repo->command_noisy( 'commit', '-m', 'Plenums-Skeleton (Autocommit)' );

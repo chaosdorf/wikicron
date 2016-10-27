@@ -17,6 +17,7 @@ use DateTime;
 use DateTime::Format::ICal;
 use DateTime::Format::Strptime;
 use MediaWiki::API;
+use URI::Escape;
 
 our $VERSION = '0.0';
 
@@ -154,13 +155,12 @@ sub add_ical {
 		summary     => $pagename,
 		description => $pagename,
 		dtstart     => DateTime::Format::ICal->format_datetime($start),
-		dtstamp     => DateTime::Format::ICal->format_datetime($today),
+		dtstamp     => DateTime::Format::ICal->format_datetime($today) . 'Z',
 		duration    => $duration_str,
-		location =>
-'Chaosdorf Computer Club Duesseldorf, Huettenstr. 25, 40215 Duesseldorf',
-		sequence => 0,
-		uid      => DateTime::Format::ICal->format_datetime($start) . '@cccd',
-		url      => "https://wiki.chaosdorf.de/${page}",
+		location    => 'Chaosdorf, Huettenstr. 25, 40215 Duesseldorf',
+		sequence    => 0,
+		uid => DateTime::Format::ICal->format_datetime($start) . '@cccd',
+		url => 'https://wiki.chaosdorf.de/' . uri_escape_utf8($page),
 	);
 	$ical->add_entry($vevent);
 }

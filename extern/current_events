@@ -243,7 +243,7 @@ sub add_entry {
 				$soon_content .= "-->\n|}\n";
 			}
 		}
-		if ( not $pageref->{multiday_dup} ) {
+		if ( $pageref->{extern} and not $pageref->{multiday_dup} ) {
 			add_ical( $date, $pageref );
 		}
 	}
@@ -322,8 +322,11 @@ sub parse_date_str {
 
 sub get_data_from_template {
 	my ($pagename) = @_;
-	my ( $title, $time, $type, $duration );
+	my ( $title, $time, $type, $duration, $extern );
 	my ( @dates, @exceptdates );
+
+	# backwards compatible default for old entries
+	$extern = 1;
 
 	my @lines = split( /\n/, mw_get($pagename) );
 	my $in_template = 0;
@@ -371,6 +374,16 @@ sub get_data_from_template {
 		{
 			$duration = $+{duration};
 		}
+		if (    $in_template
+			and $line =~ m{ \| \s* isRelevant \s* = \s* (?<relevant>\S+) }ix )
+		{
+			if ( $+{relevant} eq 'no' or $+{relevant} eq 'No' ) {
+				$extern = 0;
+			}
+			else {
+				$extern = 1;
+			}
+		}
 		if ( $line =~ m/ ^ \s* }} \s* $ /ox ) {
 			$in_template = 0;
 		}
@@ -384,6 +397,7 @@ sub get_data_from_template {
 			time       => $time,
 			type       => $type,
 			duration   => $duration // 4,
+			extern     => $extern,
 		}
 	);
 }

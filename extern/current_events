@@ -60,6 +60,8 @@ EOF
 my $soon_cnt  = 3;
 my $icalfile  = '/home/derf/cccd.ics';
 my $ical      = Data::ICal->new();
+my $acalfile  = '/home/derf/cccd_all.ics';
+my $acal      = Data::ICal->new();
 my $last_date = q{};
 my $today     = DateTime->now(
 	time_zone => 'UTC',
@@ -107,21 +109,22 @@ sub translate_type {
 }
 
 sub write_ical {
-	my $caltext = $ical->as_string;
+	my ( $cal, $calfile, $prodid ) = @_;
+	my $caltext = $cal->as_string;
 
 	$caltext =~ s{PRODID:.*\r\n}{};
 	$caltext
-	  =~ s{VERSION:[^\r\n]*\K}{\r\nCALSCALE:GREGORIAN\r\nPRODID:-//CCCD//Events//DE};
+	  =~ s{VERSION:[^\r\n]*\K}{\r\nCALSCALE:GREGORIAN\r\nPRODID:-//CCCD//${prodid}//DE};
 	$caltext =~ s{DTSTART:TZID}{DTSTART;TZID}g;
 	$caltext =~ s{DTSTAMP:TZID}{DTSTAMP;TZID}g;
 	$caltext =~ s{DTSTAMP:.*\KZ}{}g;
 	$caltext =~ s{UID:.*:}{UID:}g;
 
-	open( my $fh, '>:encoding(utf-8)', $icalfile );
+	open( my $fh, '>:encoding(utf-8)', $calfile );
 	print $fh $caltext;
 	close($fh);
 
-	system("scp -q $icalfile extern.chaosdorf.de:public_html");
+	system("scp -q $calfile extern.chaosdorf.de:public_html");
 }
 
 sub add_ical {
@@ -162,7 +165,10 @@ sub add_ical {
 		uid => DateTime::Format::ICal->format_datetime($start) . '@cccd',
 		url => 'https://wiki.chaosdorf.de/' . uri_escape_utf8($page),
 	);
-	$ical->add_entry($vevent);
+	$acal->add_entry($vevent);
+	if ( $pageref->{extern} ) {
+		$ical->add_entry($vevent);
+	}
 }
 
 # skaliert nicht.
@@ -243,7 +249,7 @@ sub add_entry {
 				$soon_content .= "-->\n|}\n";
 			}
 		}
-		if ( $pageref->{extern} and not $pageref->{multiday_dup} ) {
+		if ( not $pageref->{multiday_dup} ) {
 			add_ical( $date, $pageref );
 		}
 	}
@@ -558,4 +564,5 @@ mw_edit( 'Template:Current events preview', $soon_content );
 
 $mw->logout;
 
-write_ical;
+write_ical( $acal, $acalfile, 'AllEvents' );
+write_ical( $ical, $icalfile, 'Events' );

@@ -337,7 +337,7 @@ sub get_data_from_template {
 	my @lines = split( /\n/, mw_get($pagename) );
 	my $in_template = 0;
 	for my $line (@lines) {
-		if ( $line =~ m/ ^ \s* {{ \s* Event \s* /ox ) {
+		if ( $line =~ m/ ^ \s* \{\{ \s* Event \s* /ox ) {
 			$in_template = 1;
 		}
 		if ( $in_template
@@ -390,7 +390,7 @@ sub get_data_from_template {
 				$extern = 1;
 			}
 		}
-		if ( $line =~ m/ ^ \s* }} \s* $ /ox ) {
+		if ( $line =~ m/ ^ \s* \}\} \s* $ /ox ) {
 			$in_template = 0;
 		}
 	}

@@ -40,7 +40,7 @@ my $repo = Git->repository();
 
 $repo->command_noisy('pull');
 
-my $body = q{};
+my $body = "<https://intern.chaosdorf.de/plenum/entry/${ymd}/>\n\n";
 my $skip = 1;
 
 for my $line ( read_file("plenum/entry/${ymd}.mdwn") ) {
@@ -58,6 +58,8 @@ for my $line ( read_file("plenum/entry/${ymd}.mdwn") ) {
 if ( not length($body) ) {
 	exit 0;
 }
+
+$ymd =~ s{/}{-}g;
 
 my $mail = Email::Simple->create(
 	header => [

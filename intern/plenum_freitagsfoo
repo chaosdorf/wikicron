@@ -1,0 +1,81 @@
+#!/usr/bin/env perl
+## Copyright © 2018 by Daniel Friesel <derf@chaosdorf.de>
+## License: WTFPL:
+##   0. You just DO WHAT THE FUCK YOU WANT TO
+
+use strict;
+use warnings;
+use 5.010;
+
+use DateTime;
+use File::Slurp;
+use Git;
+use JSON;
+use List::Util qw(max);
+use LWP::UserAgent;
+
+our $VERSION = '0.0';
+
+my $date = DateTime->now( time_zone => 'Europe/Berlin' )
+  ->add( DateTime::Duration->new( days => 3 ) );
+my $friday_start = $date->clone->subtract( days => 4 )->set(
+	hour   => 12,
+	minute => 0,
+	second => 0
+);
+my $friday_end = $friday_start->clone->add( days => 1 );
+
+my $query_base  = 'http://dashboard.chaosdorf.de:9090/api/v1/query_range';
+my $hosts_query = 'sum(clubraum_hosts)';
+my $dhcp_query  = 'clubraum_hosts%20%7Bnet%3D%27dhcp%27%7D';
+my $query_start = $friday_start->epoch;
+my $query_end   = $friday_end->epoch;
+
+chdir('/home/derf/var/svn/intern.chaosdorf.de')
+  or die("Failed to chdir\n");
+
+my $ymd  = $date->strftime('%Y/%m-%d');
+my $repo = Git->repository();
+my $ua   = LWP::UserAgent->new( timeout => 10 );
+
+sub run_query {
+	my ($query) = @_;
+	my $res = $ua->get(
+		sprintf(
+			'%s?query=%s&start=%d&end=%d&step=60',
+			$query_base, $query, $query_start, $query_end
+		)
+	);
+	if ( $res->is_error ) {
+		say STDERR $res->status_line;
+		exit 1;
+	}
+
+	my $json = JSON->new->decode( $res->decoded_content );
+	if ( $json->{status} ne 'success' ) {
+		say STDERR "query $query returned status $json->{status}";
+		exit 2;
+	}
+	if ( @{ $json->{data}{result} } != 1 ) {
+		say STDERR "query $query returned too few/many results";
+		exit 3;
+	}
+	return @{ $json->{data}{result}[0]{values} };
+}
+
+my @total_hosts = map { $_->[1] } run_query($hosts_query);
+my @dhcp_hosts  = map { $_->[1] } run_query($dhcp_query);
+
+my $max_hosts = max @total_hosts;
+my $max_dhcp  = max @dhcp_hosts;
+
+$repo->command_noisy('pull');
+
+my $body = read_file("plenum/entry/${ymd}.mdwn");
+$body
+  =~ s{ ^ Anzahl \s Hosts: \s \[ hosts \] / \[ dhcp \] }{Anzahl Hosts: $max_hosts / $max_dhcp}gmsx;
+write_file( "plenum/entry/${ymd}.mdwn", $body );
+
+$repo->command_noisy( 'add', "plenum/entry/${ymd}.mdwn" );
+$repo->command_noisy( 'commit', '-m', 'Freitagsfoo-Statistiken (Autocommit)' );
+$repo->command_noisy('push');

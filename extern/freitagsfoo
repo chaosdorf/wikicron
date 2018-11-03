@@ -34,7 +34,7 @@ my $content = <<"EOF";
  |  Type = Meet-Up
  |  Date = ${ymd}
  |  Start = 18:00
- |  Duration = 8
+ |  Duration = 6
  |  Host = FIXME
 }}
 {{Freitagsfoo}}

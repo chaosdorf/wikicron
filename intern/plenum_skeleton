@@ -25,7 +25,7 @@ if ( $date->day_of_week != 2 ) {
 my $friday_start = $date->clone->subtract(days => 4)->set(hour => 12, minute => 0, second => 0);
 my $friday_end = $friday_start->clone->add(days => 1);
 
-my $dashboard_url = sprintf('https://chaosdorf.de/dashboard/dashboard/db/freitagsfoo?'
+my $dashboard_url = sprintf('https://chaosdorf.de/dashboard/d/000000008/freitagsfoo?'
 	. 'orgId=1&from=%d000&to=%d000',
 	$friday_start->epoch, $friday_end->epoch);
 
@@ -33,6 +33,10 @@ my $munin_url = sprintf('https://intern.chaosdorf.de/munin/static/dynazoom.html'
 	. '?plugin_name=chaosdorf.dn42%%2Ffeedback.chaosdorf.dn42%%2Fonline_ips_dorfmap'
 	. '&start_epoch=%d&stop_epoch=%d&size_x=800&size_y=400',
 	$friday_start->epoch, $friday_end->epoch);
+
+my $freitagsfoo_url = $friday_start->strftime(
+	'[Wikiseite](https://wiki.chaosdorf.de/Freitagsfoo/%Y-%m-%d)'
+);
 
 chdir('/home/derf/var/svn/intern.chaosdorf.de')
   or die("Failed to chdir\n");
@@ -56,6 +60,8 @@ if ( -e "plenum/entry/${ymd}.mdwn" ) {
 my $content = decode('utf-8', read_file('plenum/entry/template.mdwn'));
 
 $content =~ s{^Anzahl Hosts: \[hosts\]/\[dhcp\]\K$}{ ([dashboard]($dashboard_url))\n([munin]($munin_url))}m;
+
+$content =~ s{^\# Freitagsfoo$}{# Freitagsfoo\n\n${freitagsfoo_url}}m;
 
 write_file("plenum/entry/${ymd}.mdwn", encode('utf-8', $content) );
 

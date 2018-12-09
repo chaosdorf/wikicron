@@ -3,12 +3,13 @@
 ## License: WTFPL:
 ##   0. You just DO WHAT THE FUCK YOU WANT TO
 
-
 use strict;
 use warnings;
 use 5.010;
+use utf8;
 
 use DateTime;
+use Encode qw(decode encode);
 use Email::Sender::Simple qw(sendmail);
 use Email::Simple;
 use Email::Simple::Creator;
@@ -36,14 +37,21 @@ chdir('/home/derf/var/svn/intern.chaosdorf.de')
   or die("Failed to chdir\n");
 
 my $ymd  = $date->strftime('%Y/%m-%d');
+my $dmy  = $date->strftime('%d.%m.%Y');
 my $repo = Git->repository();
 
 $repo->command_noisy('pull');
 
-my $body = "<https://intern.chaosdorf.de/plenum/entry/${ymd}/>\n\n";
+my $body = "Das nächste Plenum findet am ${dmy} statt.\n\n";
+$body .= "README zum Ablauf: <https://intern.chaosdorf.de/verein/plenum/>\n";
+$body
+  .= "Vorbereitetes Protokoll: <https://intern.chaosdorf.de/plenum/entry/${ymd}/>\n";
+$body .= "Bisherige Tagesordnungspunkte:\n\n";
+
 my $skip = 1;
 
 for my $line ( read_file("plenum/entry/${ymd}.mdwn") ) {
+	$line = decode( 'utf-8', $line );
 	if ( $skip and not $line =~ m{^#}o ) {
 		next;
 	}
@@ -63,13 +71,15 @@ $ymd =~ s{/}{-}g;
 
 my $mail = Email::Simple->create(
 	header => [
-		To   => 'intern@chaosdorf.de',
-		From => '"Cron" <derf@chaosdorf.de>',
-		Subject =>
-		  encode_mimewords( "Plenumsankündigung $ymd", Charset => 'UTF-8' ),
+		To      => 'intern@chaosdorf.de',
+		From    => '"Cron" <derf@chaosdorf.de>',
+		Subject => encode_mimewords(
+			encode( 'utf-8', "Plenumsankündigung $ymd" ),
+			Charset => 'UTF-8'
+		),
 		'Content-Type' => 'text/plain; charset=UTF-8',
 	],
-	body => $body,
+	body => encode( 'utf-8', $body ),
 );
 
 sendmail($mail);

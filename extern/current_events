@@ -227,13 +227,15 @@ sub add_entry {
 
 		$pagename =~ s{(\s+|/) $ymd}{}x;
 
-		$content .= '<span>';
-		$content .= sprintf( '%s [[%s|%s]]', $time, $page, $pagename );
+		if ( not $pageref->{multiday_dup} or $duration > 0 ) {
+			$content .= '<span>';
+			$content .= sprintf( '%s [[%s|%s]]', $time, $page, $pagename );
 
-		#		if ( $type and not( $type ~~ \@type_blacklist ) ) {
-		#			$content .= sprintf( ' (%s)', translate_type($type) );
-		#		}
-		$content .= "</span><br/>\n";
+			#if ( $type and not( $type ~~ \@type_blacklist ) ) {
+			#	$content .= sprintf( ' (%s)', translate_type($type) );
+			#}
+			$content .= "</span><br/>\n";
+		}
 
 		if (    $soon_cnt > 0
 			and DateTime->compare( $date, $yesterday ) == 1
@@ -500,10 +502,10 @@ for ( 0 .. 62 ) {
 	my $dow = $day->day_of_week;
 
 	my @all_pages = (
-		@{ $by_date{ $dates[ $dow - 1 ] }      // [] },
-		@{ $by_date{ monthly_event($day) }     // [] },
+		@{ $by_date{ $dates[ $dow - 1 ] } //      [] },
+		@{ $by_date{ monthly_event($day) } //     [] },
 		@{ $by_date{ monthly_event_rev($day) } // [] },
-		@{ $by_date{$ymd}                      // [] }
+		@{ $by_date{$ymd} //                      [] }
 	);
 
 	if ( ( $day->month % 2 ) == 0 ) {

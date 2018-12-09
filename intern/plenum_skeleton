@@ -3,7 +3,6 @@
 ## License: WTFPL:
 ##   0. You just DO WHAT THE FUCK YOU WANT TO
 
-
 use strict;
 use warnings;
 use 5.012;
@@ -15,28 +14,32 @@ use Git;
 
 our $VERSION = '0.0';
 
-my $date = DateTime->now( time_zone => 'Europe/Berlin' )
-  ->add( days => 9 );
+my $date = DateTime->now( time_zone => 'Europe/Berlin' )->add( days => 9 );
 
 if ( $date->day_of_week != 2 ) {
 	die( 'Target date is ' . $date->day_name . ", not Tuesday!\n" );
 }
 
-my $friday_start = $date->clone->subtract(days => 4)->set(hour => 12, minute => 0, second => 0);
-my $friday_end = $friday_start->clone->add(days => 1);
+my $friday_start = $date->clone->subtract( days => 4 )->set(
+	hour   => 12,
+	minute => 0,
+	second => 0
+);
+my $friday_end = $friday_start->clone->add( days => 1 );
 
-my $dashboard_url = sprintf('https://chaosdorf.de/dashboard/d/000000008/freitagsfoo?'
-	. 'orgId=1&from=%d000&to=%d000',
-	$friday_start->epoch, $friday_end->epoch);
+my $dashboard_url
+  = sprintf( 'https://chaosdorf.de/dashboard/d/000000008/freitagsfoo?'
+	  . 'orgId=1&from=%d000&to=%d000',
+	$friday_start->epoch, $friday_end->epoch );
 
-my $munin_url = sprintf('https://intern.chaosdorf.de/munin/static/dynazoom.html'
-	. '?plugin_name=chaosdorf.dn42%%2Ffeedback.chaosdorf.dn42%%2Fonline_ips_dorfmap'
-	. '&start_epoch=%d&stop_epoch=%d&size_x=800&size_y=400',
-	$friday_start->epoch, $friday_end->epoch);
+my $munin_url
+  = sprintf( 'https://intern.chaosdorf.de/munin/static/dynazoom.html'
+	  . '?plugin_name=chaosdorf.dn42%%2Ffeedback.chaosdorf.dn42%%2Fonline_ips_dorfmap'
+	  . '&start_epoch=%d&stop_epoch=%d&size_x=800&size_y=400',
+	$friday_start->epoch, $friday_end->epoch );
 
 my $freitagsfoo_url = $friday_start->strftime(
-	'[Wikiseite](https://wiki.chaosdorf.de/Freitagsfoo/%Y-%m-%d)'
-);
+	'[Wikiseite](https://wiki.chaosdorf.de/Freitagsfoo/%Y-%m-%d)');
 
 chdir('/home/derf/var/svn/intern.chaosdorf.de')
   or die("Failed to chdir\n");
@@ -57,13 +60,14 @@ if ( -e "plenum/entry/${ymd}.mdwn" ) {
 	exit(0);
 }
 
-my $content = decode('utf-8', read_file('plenum/entry/template.mdwn'));
+my $content = decode( 'utf-8', read_file('plenum/entry/template.mdwn') );
 
-$content =~ s{^Anzahl Hosts: \[hosts\]/\[dhcp\]\K$}{ ([dashboard]($dashboard_url))\n([munin]($munin_url))}m;
+$content
+  =~ s{^Anzahl Hosts: \[hosts\]/\[dhcp\]\K$}{ ([dashboard]($dashboard_url))\n([munin]($munin_url))}m;
 
 $content =~ s{^\# Freitagsfoo$}{# Freitagsfoo\n\n${freitagsfoo_url}}m;
 
-write_file("plenum/entry/${ymd}.mdwn", encode('utf-8', $content) );
+write_file( "plenum/entry/${ymd}.mdwn", encode( 'utf-8', $content ) );
 
 $repo->command_noisy( 'add', "plenum/entry/${ymd}.mdwn" );
 $repo->command_noisy( 'commit', '-m', 'Plenums-Skeleton (Autocommit)' );

@@ -36,6 +36,7 @@ my $content = <<"EOF";
  |  Start = 18:00
  |  Duration = 6
  |  Host = FIXME
+ |  isRelevant = Yes
 }}
 {{Freitagsfoo}}
 

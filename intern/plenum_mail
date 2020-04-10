@@ -20,10 +20,14 @@ use MIME::Words qw(encode_mimewords);
 our $VERSION = '0.0';
 
 my $re_ignored = qr{
-	^ (?: Deadline: \s Sonntag )
-	| (?: Danach \s bitte \s keine )
-	| (?: \* \s \[nickname\] )
+	^ (?: Bürgerliche \s Namen \s verbleiben \s nicht \s im \s Protokoll )
+	| (?: Absatz \) \s beim \s Verfassen )
+	| (?: Sonntag, \s 15:00 \s Uhr )
+	| (?: \#\# \s Nickname \s )
 	| (?: \#\# \s Titel \s des \s (?: Berichts | Beschlusses ) )
+	| (?: > \s Ich \s habe \s zusammen \s mit \s \[ person \] )
+	| (?: Deadline: \s Sonntag )
+	| (?: Danach \s bitte \s keine )
 	| (?: Hier \s Vorschläge \s aufschreiben )
 	| (?: Formulierung \s beachten, \s alle )
 	| (?: Vorschlag: \s Dinge \s von \s Relevanz )
@@ -42,10 +46,11 @@ my $repo = Git->repository();
 
 $repo->command_noisy('pull');
 
-my $body = "Das nächste Plenum findet am ${dmy} statt.\n\n";
-$body .= "README zum Ablauf: <https://intern.chaosdorf.de/verein/plenum/>\n";
+my $body
+  = "Das nächste Plenum findet am ${dmy} in <https://virtual.chaosdorf.space/Lounge> statt.\n\n";
+$body .= "README zum Ablauf: <https://intern.chaosdorf.de/verein/plenum/>\n\n";
 $body
-  .= "Vorbereitetes Protokoll: <https://intern.chaosdorf.de/plenum/entry/${ymd}/>\n";
+  .= "Vorbereitetes Protokoll: <https://intern.chaosdorf.de/plenum/entry/${ymd}/>\n\n";
 $body .= "Bisherige Tagesordnungspunkte:\n\n";
 
 my $skip = 1;

@@ -135,6 +135,7 @@ sub add_ical {
 	my $type     = $pageref->{type};
 	my $pagename = $pageref->{title} // $pageref->{page};
 	my $duration = $pageref->{duration};
+	my $location = $pageref->{location};
 
 	my $vevent = Data::ICal::Entry::Event->new();
 
@@ -154,13 +155,25 @@ sub add_ical {
 			minutes => $tm
 		);
 	}
+
+	my $location_str;
+	if ($location and ($location->[0] =~ m{[, ]})) {
+		$location_str = $location->[0];
+	}
+	elsif ($location and $location->[1]) {
+		$location_str = $location->[0] . '  ' . $location->[1];
+	}
+	else {
+		$location_str = 'Chaosdorf, Huettenstr. 25, 40215 Duesseldorf';
+	}
+
 	$vevent->add_properties(
 		summary     => $pagename,
 		description => $pagename,
 		dtstart     => DateTime::Format::ICal->format_datetime($start),
 		dtstamp     => DateTime::Format::ICal->format_datetime($today) . 'Z',
 		duration    => $duration_str,
-		location    => 'Chaosdorf, Huettenstr. 25, 40215 Duesseldorf',
+		location    => $location_str,
 		sequence    => 0,
 		uid => DateTime::Format::ICal->format_datetime($start) . '@cccd',
 		url => 'https://wiki.chaosdorf.de/' . uri_escape_utf8($page),
@@ -330,7 +343,7 @@ sub parse_date_str {
 
 sub get_data_from_template {
 	my ($pagename) = @_;
-	my ( $title, $time, $type, $duration, $extern );
+	my ( $title, $time, $type, $duration, $location, $extern );
 	my ( @dates, @exceptdates );
 
 	# backwards compatible default for old entries
@@ -383,6 +396,22 @@ sub get_data_from_template {
 			$duration = $+{duration};
 		}
 		if (    $in_template
+			and $line =~ m{ \| \s* location \s* = \s* (?<location>.+) }ix )
+		{
+			my $loc = $+{location};
+			if ($loc =~ m{ \[ (?<url> \S+ ) \s+ (?<desc> .* ) \] }x) {
+				$location = [$+{desc}, $+{url}];
+			}
+			elsif ($loc =~ m{ \[\[ (?<desc> .* ) \]\] }x) {
+				my $desc = $+{desc};
+				my $desc_link = 'https://wiki.chaosdorf.de/' . uri_escape_utf8($desc);
+				$location = [$desc, $desc_link];
+			}
+			else {
+				$location = [$loc];
+			} # Nur overriden, wenn komma oder leerzeichen enthalten. Sonst ist es meist ein dorfraum
+		}
+		if (    $in_template
 			and $line =~ m{ \| \s* isRelevant \s* = \s* (?<relevant>\S+) }ix )
 		{
 			if ( $+{relevant} eq 'no' or $+{relevant} eq 'No' ) {
@@ -405,6 +434,7 @@ sub get_data_from_template {
 			time       => $time,
 			type       => $type,
 			duration   => $duration // 4,
+			location   => $location,
 			extern     => $extern,
 		}
 	);

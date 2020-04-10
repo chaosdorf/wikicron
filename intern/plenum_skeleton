@@ -63,7 +63,7 @@ if ( -e "plenum/entry/${ymd}.mdwn" ) {
 my $content = decode( 'utf-8', read_file('plenum/entry/template.mdwn') );
 
 $content
-  =~ s{^Anzahl Hosts: \[hosts\]/\[dhcp\]\K$}{ ([dashboard]($dashboard_url))\n([munin]($munin_url))}m;
+  =~ s{^Anzahl Hosts: \[hosts\]/\[dhcp\]\K$}{\n([dashboard]($dashboard_url))\n([munin]($munin_url))}m;
 
 $content =~ s{^\# Freitagsfoo$}{# Freitagsfoo\n\n${freitagsfoo_url}}m;
 

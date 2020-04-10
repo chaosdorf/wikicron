@@ -20,81 +20,89 @@ our $VERSION = '0.0';
 
 my $date = DateTime->now( time_zone => 'Europe/Berlin' )
   ->add( DateTime::Duration->new( days => 3 ) );
-my $friday_start = $date->clone->subtract(days => 4)->set(hour => 12, minute => 0, second => 0);
-my $friday_end = $friday_start->clone->add(days => 1);
+my $friday_start = $date->clone->subtract( days => 4 )->set(
+	hour   => 12,
+	minute => 0,
+	second => 0
+);
+my $friday_end = $friday_start->clone->add( days => 1 );
 
-my $query_base = 'http://dashboard.chaosdorf.de:9090/api/v1/query_range';
+my $query_base  = 'http://dashboard.chaosdorf.de:9090/api/v1/query_range';
 my $hosts_query = 'sum(clubraum_hosts)';
-my $dhcp_query = 'clubraum_hosts%20%7Bnet%3D%27dhcp%27%7D';
-my $guest_ips_query = 'clubraum_hosts%7Bnet%3D%27dhcp%27%7D%20-%20min_over_time(clubraum_hosts%7Bnet%3D%27dhcp%27%7D%5B48h%5D)';
-my $jitsi_base = 'https://grafana.jitsi.freifunk-duesseldorf.de/api/datasources/proxy/1/query';
+my $dhcp_query  = 'clubraum_hosts%20%7Bnet%3D%27dhcp%27%7D';
+my $guest_ips_query
+  = 'clubraum_hosts%7Bnet%3D%27dhcp%27%7D%20-%20min_over_time(clubraum_hosts%7Bnet%3D%27dhcp%27%7D%5B48h%5D)';
+my $jitsi_base
+  = 'https://grafana.jitsi.freifunk-duesseldorf.de/api/datasources/proxy/1/query';
 my $query_start = $friday_start->epoch;
-my $query_end = $friday_end->epoch;
-my $jitsi_query = "SELECT%20last(\"participants\")%20FROM%20%2F%5Evirtual%5C.chaosdorf%5C.space%24%2F%20WHERE%20time%20>%3D%20${query_start}000ms%20and%20time%20<%3D%20${query_end}000ms%20GROUP%20BY%20time(30s)%20fill(previous)";
+my $query_end   = $friday_end->epoch;
+my $jitsi_query
+  = "SELECT%20last(\"participants\")%20FROM%20%2F%5Evirtual%5C.chaosdorf%5C.space%24%2F%20WHERE%20time%20>%3D%20${query_start}000ms%20and%20time%20<%3D%20${query_end}000ms%20GROUP%20BY%20time(30s)%20fill(previous)";
 
 chdir('/home/derf/var/svn/intern.chaosdorf.de')
   or die("Failed to chdir\n");
 
 my $ymd  = $date->strftime('%Y/%m-%d');
 my $repo = Git->repository();
-my $ua = LWP::UserAgent->new(timeout => 10);
+my $ua   = LWP::UserAgent->new( timeout => 10 );
 
 sub run_query {
 	my ($query) = @_;
-	my $res = $ua->get(sprintf(
-		'%s?query=%s&start=%d&end=%d&step=60',
-		$query_base, $query, $query_start, $query_end
-	));
-	if ($res->is_error) {
+	my $res = $ua->get(
+		sprintf(
+			'%s?query=%s&start=%d&end=%d&step=60',
+			$query_base, $query, $query_start, $query_end
+		)
+	);
+	if ( $res->is_error ) {
 		say STDERR $res->status_line;
 		return '*' . $res->status_line . '*';
 	}
 
-	my $json = JSON->new->decode($res->decoded_content);
-	if ($json->{status} ne 'success') {
+	my $json = JSON->new->decode( $res->decoded_content );
+	if ( $json->{status} ne 'success' ) {
 		say STDERR "query $query returned status $json->{status}";
 		return '*No Data*';
 	}
-	if (@{$json->{data}{result}} != 1) {
+	if ( @{ $json->{data}{result} } != 1 ) {
 		say STDERR "query $query returned too few/many results";
 		return '*Invalid Data*';
 	}
-	return max map { $_->[1] } @{$json->{data}{result}[0]{values}};
+	return max map { $_->[1] } @{ $json->{data}{result}[0]{values} };
 }
 
 sub run_query_ff {
 	my ($query) = @_;
 
-	my $res = $ua->get(sprintf(
-		'%s?db=jitsi&q=%s&epoch=ms',
-		$jitsi_base, $query
-	));
-	if ($res->is_error) {
+	my $res
+	  = $ua->get( sprintf( '%s?db=jitsi&q=%s&epoch=ms', $jitsi_base, $query ) );
+	if ( $res->is_error ) {
 		say STDERR $res->status_line;
 		return '*' . $res->status_line . '*';
 	}
 
-	my $json = JSON->new->decode($res->decoded_content);
+	my $json = JSON->new->decode( $res->decoded_content );
 
-	if (@{$json->{results}} < 1 or @{$json->{results}[0]{series}} < 1) {
+	if ( @{ $json->{results} } < 1 or @{ $json->{results}[0]{series} } < 1 ) {
 		say STDERR "query $query returned no data";
 		return '*No Data*';
 	}
 
-	return max map { $_->[1] } @{$json->{results}[0]{series}[0]{values}};
+	return max map { $_->[1] } @{ $json->{results}[0]{series}[0]{values} };
 }
 
-my $max_hosts = run_query($hosts_query);
-my $max_dhcp = run_query($dhcp_query);
+my $max_hosts     = run_query($hosts_query);
+my $max_dhcp      = run_query($dhcp_query);
 my $max_guest_ips = run_query($guest_ips_query);
-my $max_jitsi = run_query_ff($jitsi_query);
+my $max_jitsi     = run_query_ff($jitsi_query);
 
 $repo->command_noisy('pull');
 
-my $body = decode('utf-8', read_file("plenum/entry/${ymd}.mdwn"));
-$body =~ s{ ^ Anzahl \s Hosts: \s \[ hosts \] / \[ dhcp \] \s* }{Geschätzte Anzahl Gast-IPs: $max_guest_ips\n(Ohne „chaosdorf-isolated“)\n\nAnzahl Jitsi-Verbindungen: $max_jitsi\n\n}gmsx;
+my $body = decode( 'utf-8', read_file("plenum/entry/${ymd}.mdwn") );
+$body
+  =~ s{ ^ Anzahl \s Hosts: \s \[ hosts \] / \[ dhcp \] \s* }{Geschätzte Anzahl Gast-IPs: $max_guest_ips\n(Ohne „chaosdorf-isolated“)\n\nAnzahl Jitsi-Verbindungen: $max_jitsi\n\n}gmsx;
 
-write_file("plenum/entry/${ymd}.mdwn", encode('utf-8', $body));
+write_file( "plenum/entry/${ymd}.mdwn", encode( 'utf-8', $body ) );
 
 $repo->command_noisy( 'add', "plenum/entry/${ymd}.mdwn" );
 $repo->command_noisy( 'commit', '-m', 'Freitagsfoo-Statistiken (Autocommit)' );

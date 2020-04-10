@@ -73,7 +73,7 @@ my $yesterday
 my @dates = qw(
   monday tuesday wednesday thursday friday saturday sunday
 );
-my @blacklist = ( qw(Template:Freitagsfoo Freitagsfoo), 'Further Foo' );
+my @blacklist      = ( qw(Template:Freitagsfoo Freitagsfoo), 'Further Foo' );
 my @type_blacklist = qw(Meet-Up);
 
 my ( %by_date, @unknown );
@@ -157,10 +157,10 @@ sub add_ical {
 	}
 
 	my $location_str;
-	if ($location and ($location->[0] =~ m{[, ]})) {
+	if ( $location and ( $location->[0] =~ m{[, ]} ) ) {
 		$location_str = $location->[0];
 	}
-	elsif ($location and $location->[1]) {
+	elsif ( $location and $location->[1] ) {
 		$location_str = $location->[0] . '  ' . $location->[1];
 	}
 	else {
@@ -349,7 +349,7 @@ sub get_data_from_template {
 	# backwards compatible default for old entries
 	$extern = 1;
 
-	my @lines = split( /\n/, mw_get($pagename) );
+	my @lines       = split( /\n/, mw_get($pagename) );
 	my $in_template = 0;
 	for my $line (@lines) {
 		if ( $line =~ m/ ^ \s* \{\{ \s* Event \s* /ox ) {
@@ -399,13 +399,14 @@ sub get_data_from_template {
 			and $line =~ m{ \| \s* location \s* = \s* (?<location>.+) }ix )
 		{
 			my $loc = $+{location};
-			if ($loc =~ m{ \[ (?<url> \S+ ) \s+ (?<desc> .* ) \] }x) {
-				$location = [$+{desc}, $+{url}];
+			if ( $loc =~ m{ \[ (?<url> \S+ ) \s+ (?<desc> .* ) \] }x ) {
+				$location = [ $+{desc}, $+{url} ];
 			}
-			elsif ($loc =~ m{ \[\[ (?<desc> .* ) \]\] }x) {
+			elsif ( $loc =~ m{ \[\[ (?<desc> .* ) \]\] }x ) {
 				my $desc = $+{desc};
-				my $desc_link = 'https://wiki.chaosdorf.de/' . uri_escape_utf8($desc);
-				$location = [$desc, $desc_link];
+				my $desc_link
+				  = 'https://wiki.chaosdorf.de/' . uri_escape_utf8($desc);
+				$location = [ $desc, $desc_link ];
 			}
 			else {
 				$location = [$loc];
@@ -532,10 +533,10 @@ for ( 0 .. 62 ) {
 	my $dow = $day->day_of_week;
 
 	my @all_pages = (
-		@{ $by_date{ $dates[ $dow - 1 ] } //      [] },
-		@{ $by_date{ monthly_event($day) } //     [] },
+		@{ $by_date{ $dates[ $dow - 1 ] }      // [] },
+		@{ $by_date{ monthly_event($day) }     // [] },
 		@{ $by_date{ monthly_event_rev($day) } // [] },
-		@{ $by_date{$ymd} //                      [] }
+		@{ $by_date{$ymd}                      // [] }
 	);
 
 	if ( ( $day->month % 2 ) == 0 ) {
@@ -570,7 +571,7 @@ for ( 0 .. 1100 ) {
 	my $dow = $day->day_of_week;
 
 	my @all_pages = ( @{ $by_date{$ymd} // [] } );
-	my @by_time = sort { $a->{time} cmp $b->{time} }
+	my @by_time   = sort { $a->{time} cmp $b->{time} }
 	  grep { defined $_->{time} and not $_->{multiday_dup} } @all_pages;
 	my @by_name = sort { $a->{title} cmp $b->{title} }
 	  grep { not defined $_->{time} and not $_->{multiday_dup} } @all_pages;

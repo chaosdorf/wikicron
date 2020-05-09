@@ -18,7 +18,7 @@ our $VERSION = '0.0';
 my $prefix = '/tmp/wfs/chaosdorf';
 
 my $date = DateTime->now( time_zone => 'Europe/Berlin' )
-  ->add( DateTime::Duration->new( days => 63 ) );
+  ->add( DateTime::Duration->new( weeks => 9 ) );
 
 if ( $date->day_of_week != 5 ) {
 	die( 'Target date is ' . $date->day_name . ", not Friday!\n" );

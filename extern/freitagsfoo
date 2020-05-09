@@ -20,12 +20,19 @@ my $prefix = '/tmp/wfs/chaosdorf';
 my $date = DateTime->now( time_zone => 'Europe/Berlin' )
   ->add( DateTime::Duration->new( weeks => 9 ) );
 
+my $redir_date = DateTime->now( time_zone => 'Europe/Berlin' );
+
 if ( $date->day_of_week != 5 ) {
 	die( 'Target date is ' . $date->day_name . ", not Friday!\n" );
 }
 
+if ( $redir_date->day_of_week != 5 ) {
+	die( 'Redirect target date is ' . $redir_date->day_name . ", not Friday!\n" );
+}
+
 my $ymd    = $date->ymd;
 my $target = "Freitagsfoo/${ymd}";
+my $redir_target = "Freitagsfoo/current";
 
 my $content = <<"EOF";
 {{Event
@@ -46,6 +53,7 @@ sollte nicht länger als 20 Minuten sein.
 
 [https://wiki.chaosdorf.de/index.php?title=Freitagsfoo/${ymd}&amp;action=edit&amp;section=new add your talk here]
 EOF
+my $redir_content = "#REDIRECT [[Freitagsfoo/${redir_date->ymd}]]";
 
 my $mw = MediaWiki::API->new(
 {
@@ -75,4 +83,14 @@ $mw->edit( {
 	text => $content,
 	bot => 1,
 } )
+|| die $mw->{error}->{code} . ':'.$mw->{error}->{details};
+
+my $redir_ts = $mw->get_page( {title=> $redir_target} )->{timestamp};
+$mw->edit( {
+	action => 'edit',
+	title => $redir_target,
+	basetimestamp => $ts,
+	text => $redir_content,
+	bot => 1,
+})
 || die $mw->{error}->{code} . ':'.$mw->{error}->{details};

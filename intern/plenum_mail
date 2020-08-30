@@ -48,14 +48,15 @@ $repo->command_noisy('pull');
 
 my $body
   = "Das nächste Plenum findet am ${dmy} in <https://virtual.chaosdorf.space/Lounge> statt.\n\n";
-$body .= "README zum Ablauf: <https://intern.chaosdorf.de/verein/plenum/>\n\n";
 $body
-  .= "Vorbereitetes Protokoll: <https://intern.chaosdorf.de/plenum/entry/${ymd}/>\n\n";
+  .= "README zum Ablauf: <https://wiki.intern.chaosdorf.de/verein/plenum/>\n\n";
+$body
+  .= "Vorbereitetes Protokoll: <https://wiki.intern.chaosdorf.de/plenum/entry/${ymd}/>\n\n";
 $body .= "Bisherige Tagesordnungspunkte:\n\n";
 
 my $skip = 1;
 
-for my $line ( read_file("plenum/entry/${ymd}.mdwn") ) {
+for my $line ( read_file("plenum/entry/${ymd}.md") ) {
 	$line = decode( 'utf-8', $line );
 	if ( $skip and not $line =~ m{^#}o ) {
 		next;

@@ -13,14 +13,31 @@ use Encode qw(decode encode);
 use File::Slurp qw(read_file write_file);
 use Git;
 
+sub update_plenum {
+	my ( $filename, $this_week_dt, $next_week_dt ) = @_;
+
+	my $this_week_link = $this_week_dt->strftime('%Y/%m-%d');
+	my $next_week_link = $next_week_dt->strftime('%Y/%m-%d');
+
+	my $this_week_text = $this_week_dt->strftime('%d.%m.');
+	my $next_week_text = $next_week_dt->strftime('%d.%m.');
+
+	my $plenum_site = decode( 'utf8', read_file($filename) );
+	$plenum_site
+	  =~ s{ \[Plenum \s diese \s Woche \] \( /plenum/entry/..../..-.. \) (?: \s \(\d+\.\d+\.\))? }
+		{[Plenum diese Woche](/plenum/entry/$this_week_link) ($this_week_text)}x;
+	$plenum_site
+	  =~ s{ \[Plenum \s nächste \s Woche \] \( /plenum/entry/..../..-.. \) (?: \s \(\d+\.\d+\.\))? }
+		{[Plenum nächste Woche](/plenum/entry/$next_week_link ($next_week_text)}x;
+
+	write_file( $filename, encode( 'utf8', $plenum_site ) );
+}
+
 our $VERSION = '0.0';
 
 my $this_week_dt
   = DateTime->now( time_zone => 'Europe/Berlin' )->add( days => 1 );
 my $next_week_dt = $this_week_dt->clone->add( days => 7 );
-
-my $this_week = $this_week_dt->strftime('%Y/%m-%d');
-my $next_week = $next_week_dt->strftime('%Y/%m-%d');
 
 if ( $this_week_dt->day_of_week != 2 ) {
 	die( 'Target date is ' . $this_week_dt->day_name . ", not Tuesday!\n" );
@@ -33,15 +50,10 @@ my $repo = Git->repository();
 
 $repo->command_noisy('pull');
 
-my $plenum_site = decode( 'utf8', read_file('verein/plenum.mdwn') );
-$plenum_site =~ s{ \[\[Plenum \s diese \s Woche \| plenum/entry/..../..-..\]\] }
-	{[[Plenum diese Woche|plenum/entry/$this_week]]}x;
-$plenum_site
-  =~ s{ \[\[Plenum \s nächste \s Woche \| plenum/entry/..../..-..\]\] }
-	{[[Plenum nächste Woche|plenum/entry/$next_week]]}x;
+update_plenum( 'verein/plenum.md', $this_week_dt, $next_week_dt );
+update_plenum( 'home.md',          $this_week_dt, $next_week_dt );
 
-write_file( 'verein/plenum.mdwn', encode( 'utf8', $plenum_site ) );
-
-$repo->command_noisy( 'add', 'verein/plenum.mdwn' );
+$repo->command_noisy( 'add',    'verein/plenum.md' );
+$repo->command_noisy( 'add',    'home.md' );
 $repo->command_noisy( 'commit', '-m', 'Plenums-Shortcuts' );
 $repo->command_noisy('push');

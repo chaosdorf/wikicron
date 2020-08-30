@@ -56,19 +56,19 @@ if ( not -e "plenum/entry/$year" ) {
 	mkdir("plenum/entry/$year");
 }
 
-if ( -e "plenum/entry/${ymd}.mdwn" ) {
+if ( -e "plenum/entry/${ymd}.md" ) {
 	exit(0);
 }
 
-my $content = decode( 'utf-8', read_file('plenum/entry/template.mdwn') );
+my $content = decode( 'utf-8', read_file('plenum/entry/template.md') );
 
 $content
   =~ s{^Anzahl Hosts: \[hosts\]/\[dhcp\]\K$}{\n([dashboard]($dashboard_url))\n([munin]($munin_url))}m;
 
 $content =~ s{^\# Freitagsfoo$}{# Freitagsfoo\n\n${freitagsfoo_url}}m;
 
-write_file( "plenum/entry/${ymd}.mdwn", encode( 'utf-8', $content ) );
+write_file( "plenum/entry/${ymd}.md", encode( 'utf-8', $content ) );
 
-$repo->command_noisy( 'add', "plenum/entry/${ymd}.mdwn" );
+$repo->command_noisy( 'add', "plenum/entry/${ymd}.md" );
 $repo->command_noisy( 'commit', '-m', 'Plenums-Skeleton (Autocommit)' );
 $repo->command_noisy('push');

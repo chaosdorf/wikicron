@@ -351,9 +351,26 @@ sub get_data_from_template {
 
 	my @lines       = split( /\n/, mw_get($pagename) );
 	my $in_template = 0;
+	my $has_seen_template = 0;
 	for my $line (@lines) {
 		if ( $line =~ m/ ^ \s* \{\{ \s* Event \s* /ox ) {
 			$in_template = 1;
+			$has_seen_template = 1;
+		}
+		if ($line =~ m/ ^ \s* \{\{ \s* Freitagsfoo \s* /ox and not $has_seen_template ) {
+			print $line;
+			my $content = join( "\n", @lines );
+			$content =~ s/\{\{\s*Freitagsfoo/\{\{subst:Freitagsfoo /;
+			if ( my $ref = $mw->api( {
+				action => 'parse',
+				title => $pagename,
+				text => $content,
+				pst => 1,
+				onlypst => 1
+		} ) ) {
+				$content = $ref->{parse}->{text}->{"*"};
+				@lines = split( /\n/, $content);
+			}
 		}
 		if ( $in_template
 			and ( $line =~ m{ \| \s* date \s* = \s* (?<date> .+ ) $ }ix ) )

@@ -47,7 +47,7 @@ my $repo = Git->repository();
 $repo->command_noisy('pull');
 
 my $body
-  = "Das nächste Plenum findet am ${dmy} in <https://virtual.chaosdorf.space/Lounge> statt.\n\n";
+  = "Das nächste Plenum findet am ${dmy} in <https://wiki.chaosdorf.de/VirtualSpace> (Lounge) statt.\n\n";
 $body
   .= "README zum Ablauf: <https://wiki.intern.chaosdorf.de/verein/plenum/>\n\n";
 $body

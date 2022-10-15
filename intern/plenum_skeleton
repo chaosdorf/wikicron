@@ -8,13 +8,14 @@ use warnings;
 use 5.012;
 
 use DateTime;
-use Encode qw(decode encode);
+use Encode      qw(decode encode);
 use File::Slurp qw(read_file write_file);
 use Git;
 
 our $VERSION = '0.0';
 
 my $date = DateTime->now( time_zone => 'Europe/Berlin' )->add( days => 9 );
+my $utc  = DateTime->now;
 
 if ( $date->day_of_week != 2 ) {
 	die( 'Target date is ' . $date->day_name . ", not Tuesday!\n" );
@@ -66,6 +67,9 @@ $content
   =~ s{^Anzahl Hosts: \[hosts\]/\[dhcp\]\K$}{\n([dashboard]($dashboard_url))\n([munin]($munin_url))}m;
 
 $content =~ s{^\# Freitagsfoo$}{# Freitagsfoo\n\n${freitagsfoo_url}}m;
+
+my $timestamp = $utc->strftime('%Y-%m-%dT%H:%M:%S.%3N%z');
+$content =~ s{^date: ....-..-..T..:..:......Z$}{date: ${timestamp}}m;
 
 write_file( "plenum/entry/${ymd}.md", encode( 'utf-8', $content ) );
 

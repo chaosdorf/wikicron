@@ -47,6 +47,12 @@ my $content = <<"EOF";
 }}
 {{Freitagsfoo}}
 
+'''Aktueller Hinweis''':
+Als gegenseitige Rücksichtsmaßnahme vor dem Hintergrund von COVID-19 haben wir im Chaosdorf [[Corona-Regeln]]. In Kurz:
+* Während des Freitagsfoo besteht '''Maskenpflicht''' in allen Räumen außer [[Cave]] und [[Lounge]]
+* Wir bitten um einen aktuellen (negativen) '''Schnelltest'''
+* Für Verpeiler liegen FFP2-Masken und Schnelltests im [[Seminarraum]] aus
+
 Alle Anwesenden sind eingeladen, kurze Vorträge zu für sie interessanten Themen
 zu halten. Die Vorträge beginnen meist gegen 21 Uhr; ein einzelner Vortrag
 sollte nicht länger als 20 Minuten sein.

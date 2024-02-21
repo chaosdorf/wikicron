@@ -257,7 +257,7 @@ sub add_entry {
 			$soon_cnt--;
 			$soon_content .= sprintf(
 				"-->{{Infobox row | name = %s | value = %s [[%s|%s]] }}<!--\n",
-				$date->strftime('%b %d'),
+				$date->strftime('%d. %b'),
 				$time, $page, $pagename
 			);
 			if ( $soon_cnt == 0 ) {
@@ -320,17 +320,27 @@ sub monthly_event_rev {
 	return 'none';
 }
 
+sub biweekly_event {
+	my ($day) = @_;
+	my $dow = $day->day_of_week - 1;
+	if ( $day->week_number % 2 ) {
+		return sprintf( 'other %s', $dates[$dow] );
+	}
+	return sprintf( 'second %s', $dates[$dow] );
+}
+
 sub parse_date_str {
 	my ($datestr) = @_;
 
 	if (   $datestr =~ m{ (?<date>....-..-..) }ix
-		or $datestr =~ m{ every \s+ (?<date> .+ ) }ix
-		or $datestr =~ m{ monthly: \s* (?<date>....? \s+ [a-zA-Z]+) }ix
 		or $datestr
 		=~ m{ (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ month }ix
 		or $datestr
 		=~ m{ (?<date>....? \s+ [a-zA-Z]+) \s+ (?: of \s+)? every \s+ (?<monthspec> other ) \s+ month }ix
-	  )
+		or $datestr =~ m{ every \s+ (?<date> .+ ) }ix
+		or $datestr =~ m{ every \s+ (?<date> second \s+ .+ ) }ix
+		or $datestr =~ m{ every \s+ (?<date> other \s+ .+ ) }ix
+		or $datestr =~ m{ monthly: \s* (?<date>....? \s+ [a-zA-Z]+) }ix )
 	{
 		my $date = lc( $+{date} );
 		if ( $+{monthspec} ) {
@@ -534,6 +544,7 @@ for ( 0 .. 62 ) {
 
 	my @all_pages = (
 		@{ $by_date{ $dates[ $dow - 1 ] }      // [] },
+		@{ $by_date{ biweekly_event($day) }    // [] },
 		@{ $by_date{ monthly_event($day) }     // [] },
 		@{ $by_date{ monthly_event_rev($day) } // [] },
 		@{ $by_date{$ymd}                      // [] }

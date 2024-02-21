@@ -525,7 +525,7 @@ for my $page ( map { $_->{title} } @pages ) {
 		my ( undef, $pageref ) = get_data_from_template($page);
 		push( @{ $by_date{ $+{date} } }, $pageref );
 	}
-	elsif ( not( $page ~~ \@blacklist ) ) {
+	elsif ( not( $page ~~ \@blacklist or $page =~ m{ ^ Archiv: }x ) ) {
 		my ( $dates, $pageref ) = get_data_from_template($page);
 		if ( $dates and @{$dates} ) {
 			for my $date ( @{$dates} ) {

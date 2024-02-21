@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-## Copyright © 2012,2013 by Birte Kristina Friesel <derf@chaosdorf.de>
+## Copyright © 2012-2024 by Birte Kristina Friesel <derf@chaosdorf.de>
 ## License: WTFPL:
 ##   0. You just DO WHAT THE FUCK YOU WANT TO
 
@@ -164,7 +164,7 @@ sub add_ical {
 		$location_str = $location->[0] . '  ' . $location->[1];
 	}
 	else {
-		$location_str = 'Chaosdorf, Huettenstr. 25, 40215 Duesseldorf';
+		$location_str = 'Chaosdorf, Sonnenstr. 58, 40227 Duesseldorf';
 	}
 
 	$vevent->add_properties(

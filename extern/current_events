@@ -353,8 +353,9 @@ sub parse_date_str {
 
 sub get_data_from_template {
 	my ($pagename) = @_;
-	my ( $title, $time, $type, $duration, $location, $extern );
-	my ( @dates, @exceptdates );
+	my ( $title,     $time, $type, $duration, $location, $extern );
+	my ( @dates,     @exceptdates );
+	my ( $first_ymd, $last_ymd );
 
 	# backwards compatible default for old entries
 	$extern = 1;
@@ -389,6 +390,20 @@ sub get_data_from_template {
 			and $line =~ m{ \| \s* additionaldates \s* = \s* (?<dates>.*) }ix )
 		{
 			push( @dates, split( /,\s*/, $+{dates} ) );
+		}
+		if (    $in_template
+			and $line
+			=~ m{ \| \s* firstdate \s* = \s* (?<year> \d{4} )-(?<month> \d{2} )-(?<day> \d{2} ) }ix
+		  )
+		{
+			$first_ymd = $+{year} . $+{month} . $+{day};
+		}
+		if (    $in_template
+			and $line
+			=~ m{ \| \s* lastdate \s* = \s* (?<year> \d{4} )-(?<month> \d{2} )-(?<day> \d{2} ) }ix
+		  )
+		{
+			$last_ymd = $+{year} . $+{month} . $+{day};
 		}
 		if (    $in_template
 			and $line =~ m{ \| \s* start \s* = \s* (?<time>.?.:..) }ix )
@@ -440,6 +455,8 @@ sub get_data_from_template {
 		[@dates],
 		{
 			exceptions => \@exceptdates,
+			not_before => $first_ymd,
+			not_after  => $last_ymd,
 			page       => $pagename,
 			title      => $title // $pagename,
 			time       => $time,
@@ -542,6 +559,8 @@ for ( 0 .. 62 ) {
 	my $ymd = $day->ymd;
 	my $dow = $day->day_of_week;
 
+	my $ymd_num = $day->strftime('%Y%m%d');
+
 	my @all_pages = (
 		@{ $by_date{ $dates[ $dow - 1 ] }      // [] },
 		@{ $by_date{ biweekly_event($day) }    // [] },
@@ -555,6 +574,13 @@ for ( 0 .. 62 ) {
 		push( @all_pages,
 			@{ $by_date{ monthly_event_rev($day) . '/2' } // [] } );
 	}
+
+	@all_pages
+	  = grep { not defined $_->{not_before} or $ymd_num >= $_->{not_before} }
+	  @all_pages;
+	@all_pages
+	  = grep { not defined $_->{not_after} or $ymd_num <= $_->{not_after} }
+	  @all_pages;
 
 	my @by_time = sort { $a->{time} cmp $b->{time} }
 	  grep { defined $_->{time} } @all_pages;
@@ -582,7 +608,14 @@ for ( 0 .. 1100 ) {
 	my $dow = $day->day_of_week;
 
 	my @all_pages = ( @{ $by_date{$ymd} // [] } );
-	my @by_time   = sort { $a->{time} cmp $b->{time} }
+
+	@all_pages
+	  = grep { not defined $_->{not_before} or $ymd >= $_->{not_before} }
+	  @all_pages;
+	@all_pages = grep { not defined $_->{not_after} or $ymd <= $_->{not_after} }
+	  @all_pages;
+
+	my @by_time = sort { $a->{time} cmp $b->{time} }
 	  grep { defined $_->{time} and not $_->{multiday_dup} } @all_pages;
 	my @by_name = sort { $a->{title} cmp $b->{title} }
 	  grep { not defined $_->{time} and not $_->{multiday_dup} } @all_pages;

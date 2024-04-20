@@ -197,7 +197,7 @@ sub add_entry {
 		$content
 		  .= '| style="height: 7em; min-width: 10em; max-width: 10%; vertical-align: top;';
 		if ( DateTime->compare( $date, $yesterday ) == -1 ) {
-			$content .= ' background-color: #cccccc;';
+			$content .= ' background-color: rgba(127, 127, 127, .2);';
 		}
 		$content .= '"| ';
 		$content .= $date->strftime(
